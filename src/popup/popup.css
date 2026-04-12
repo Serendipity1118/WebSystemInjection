@@ -27,6 +27,12 @@ body {
   color: #fff;
   padding: 14px 16px;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header__left {
+  display: flex;
   align-items: baseline;
   gap: 8px;
 }
@@ -39,6 +45,42 @@ body {
 .header__subtitle {
   font-size: 12px;
   opacity: 0.85;
+}
+
+
+/* Global status bar */
+.global-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.global-status-bar--enabled {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.global-status-bar--disabled {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.global-status-bar__icon {
+  font-size: 10px;
+}
+
+.global-status-bar__sep {
+  opacity: 0.3;
+  font-weight: 400;
+}
+
+.main-view--disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 /* Section */
@@ -117,9 +159,11 @@ body {
 
 /* Toggle switch */
 .toggle {
+  display: inline-block;
   position: relative;
   width: 40px;
   height: 22px;
+  flex-shrink: 0;
 }
 
 .toggle input { display: none; }
@@ -151,6 +195,18 @@ body {
 
 .toggle input:checked + .toggle__slider::before {
   transform: translateX(18px);
+}
+
+.toggle--header .toggle__slider {
+  background: rgba(255,255,255,0.35);
+}
+
+.toggle--header input:checked + .toggle__slider {
+  background: #fff;
+}
+
+.toggle--header input:checked + .toggle__slider::before {
+  background: #4688F1;
 }
 
 /* Buttons */

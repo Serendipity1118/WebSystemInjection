@@ -9,6 +9,9 @@ test.describe('ポップアップUI', () => {
 
     await expect(page.locator('.header__title')).toHaveText('WSI');
     await expect(page.locator('.header__subtitle')).toHaveText('Web System Injection');
+    await expect(page.locator('#global-toggle')).toBeChecked();
+    await expect(page.locator('#global-status-text')).toHaveText('有効');
+    await expect(page.locator('#header-plugin-count')).toHaveText('0');
     await expect(page.locator('#empty-message')).toBeVisible();
     await expect(page.locator('#plugin-count')).toHaveText('0');
     await expect(page.locator('#add-plugin-btn')).toBeVisible();
@@ -55,6 +58,7 @@ test.describe('ポップアップUI', () => {
 
       await expect(page.locator('#main-view')).toBeVisible();
       await expect(page.locator('#plugin-count')).toHaveText('1');
+      await expect(page.locator('#header-plugin-count')).toHaveText('1');
       await expect(page.locator('.plugin-card__name')).toHaveText('Test Plugin');
       await expect(page.locator('.plugin-card__domains')).toContainText('example.com');
     } finally {
@@ -84,6 +88,30 @@ test.describe('ポップアップUI', () => {
     }
   });
 
+  test('WSIグローバルトグルで有効/無効を切り替えられる', async ({ page, extensionId, context }) => {
+    await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+
+    await expect(page.locator('#global-status-text')).toHaveText('有効');
+    await expect(page.locator('.global-status-bar')).toHaveClass(/global-status-bar--enabled/);
+
+    await page.locator('.toggle--header .toggle__slider').click();
+
+    await expect(page.locator('#global-toggle')).not.toBeChecked();
+    await expect(page.locator('#global-status-text')).toHaveText('無効');
+    await expect(page.locator('.global-status-bar')).toHaveClass(/global-status-bar--disabled/);
+    await expect(page.locator('#main-view')).toHaveClass(/main-view--disabled/);
+
+    const serviceWorker = context.serviceWorkers()[0];
+    const result = await serviceWorker.evaluate(() =>
+      chrome.storage.local.get('wsiEnabled')
+    );
+    expect(result.wsiEnabled).toBe(false);
+
+    await page.locator('.toggle--header .toggle__slider').click();
+    await expect(page.locator('#global-toggle')).toBeChecked();
+    await expect(page.locator('#global-status-text')).toHaveText('有効');
+  });
+
   test('プラグインの有効/無効を切り替えられる', async ({ page, extensionId, context }) => {
     const serviceWorker = context.serviceWorkers()[0];
     await serviceWorker.evaluate(() => {
@@ -108,10 +136,10 @@ test.describe('ポップアップUI', () => {
 
     await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
 
-    const toggle = page.locator('.toggle input[type="checkbox"]');
+    const toggle = page.locator('.plugin-card .toggle input[type="checkbox"]');
     await expect(toggle).toBeChecked();
 
-    await page.locator('.toggle__slider').click();
+    await page.locator('.plugin-card .toggle__slider').click();
     await expect(toggle).not.toBeChecked();
 
     const result = await serviceWorker.evaluate(() =>

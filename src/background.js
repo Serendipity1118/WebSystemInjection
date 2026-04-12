@@ -28,6 +28,9 @@ async function injectPlugins(tabId, url) {
     const hostname = new URL(url).hostname;
     if (!hostname) return;
 
+    const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');
+    if (!wsiEnabled) return;
+
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     const matched = plugins.filter(
       (p) => p.enabled && matchesDomain(hostname, p.domains)
@@ -229,6 +232,14 @@ async function handleStorageRequest(message) {
 async function updateBadge(tabId, url) {
   try {
     const hostname = new URL(url).hostname;
+    const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');
+
+    if (!wsiEnabled) {
+      await chrome.action.setBadgeText({ text: 'OFF', tabId });
+      await chrome.action.setBadgeBackgroundColor({ color: '#999', tabId });
+      return;
+    }
+
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     const matchCount = plugins.filter(
       (p) => p.enabled && matchesDomain(hostname, p.domains)

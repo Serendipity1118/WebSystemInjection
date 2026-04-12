@@ -9,9 +9,22 @@
 <body>
   <div class="container">
     <header class="header">
-      <h1 class="header__title">WSI</h1>
-      <span class="header__subtitle">Web System Injection</span>
+      <div class="header__left">
+        <h1 class="header__title">WSI</h1>
+        <span class="header__subtitle">Web System Injection</span>
+      </div>
+      <label class="toggle toggle--header" title="WSI 全体の有効/無効">
+        <input type="checkbox" id="global-toggle" checked>
+        <span class="toggle__slider"></span>
+      </label>
     </header>
+
+    <div id="global-status-bar" class="global-status-bar global-status-bar--enabled">
+      <span id="global-status-icon" class="global-status-bar__icon">●</span>
+      <span id="global-status-text">有効</span>
+      <span class="global-status-bar__sep">|</span>
+      <span>プラグイン: <strong id="header-plugin-count">0</strong> 件</span>
+    </div>
 
     <main id="main-view">
       <section id="plugin-list-section">

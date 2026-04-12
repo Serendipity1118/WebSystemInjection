@@ -13,10 +13,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const pluginList = document.getElementById('plugin-list');
   const pluginCount = document.getElementById('plugin-count');
   const emptyMessage = document.getElementById('empty-message');
+  const globalToggle = document.getElementById('global-toggle');
+  const globalStatusBar = document.getElementById('global-status-bar');
+  const globalStatusIcon = document.getElementById('global-status-icon');
+  const globalStatusText = document.getElementById('global-status-text');
+  const headerPluginCount = document.getElementById('header-plugin-count');
 
   let pendingPlugin = null;
 
+  initGlobalToggle();
   loadPluginList();
+
+  async function initGlobalToggle() {
+    const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');
+    globalToggle.checked = wsiEnabled;
+    applyGlobalState(wsiEnabled);
+  }
+
+  function applyGlobalState(enabled) {
+    globalStatusBar.classList.toggle('global-status-bar--enabled', enabled);
+    globalStatusBar.classList.toggle('global-status-bar--disabled', !enabled);
+    globalStatusIcon.textContent = enabled ? '●' : '○';
+    globalStatusText.textContent = enabled ? '有効' : '無効';
+    mainView.classList.toggle('main-view--disabled', !enabled);
+  }
+
+  globalToggle.addEventListener('change', async () => {
+    const enabled = globalToggle.checked;
+    await chrome.storage.local.set({ wsiEnabled: enabled });
+    applyGlobalState(enabled);
+  });
 
   addPluginBtn.addEventListener('click', () => {
     mainView.classList.add('hidden');
@@ -179,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadPluginList() {
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     pluginCount.textContent = String(plugins.length);
+    headerPluginCount.textContent = String(plugins.length);
 
     if (plugins.length === 0) {
       emptyMessage.classList.remove('hidden');
