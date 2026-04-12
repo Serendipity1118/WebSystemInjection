@@ -1,0 +1,105 @@
+{
+  "extName": {
+    "message": "Web System Injection"
+  },
+  "extDescription": {
+    "message": "既存Webサイトにカスタム機能を注入するプラグインシステム"
+  },
+  "globalToggleTitle": {
+    "message": "WSI 全体の有効/無効"
+  },
+  "statusEnabled": {
+    "message": "有効"
+  },
+  "statusDisabled": {
+    "message": "無効"
+  },
+  "pluginCountLabel": {
+    "message": "プラグイン: $COUNT$ 件",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pluginList": {
+    "message": "プラグイン一覧"
+  },
+  "noPlugins": {
+    "message": "プラグインがありません"
+  },
+  "addPlugin": {
+    "message": "+ プラグインを追加"
+  },
+  "importTitle": {
+    "message": "プラグインを追加"
+  },
+  "dropZoneText": {
+    "message": "ZIPファイルをドロップ\nまたはクリックして選択"
+  },
+  "preview": {
+    "message": "プレビュー"
+  },
+  "importBtn": {
+    "message": "インポート"
+  },
+  "deleteBtn": {
+    "message": "削除"
+  },
+  "confirmDelete": {
+    "message": "プラグイン \"$NAME$\" を削除しますか？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmOverwrite": {
+    "message": "プラグイン \"$NAME$\" は既にインストールされています。上書きしますか？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "errNoPluginJson": {
+    "message": "plugin.json が見つかりません"
+  },
+  "errInvalidJson": {
+    "message": "plugin.json の形式が不正です"
+  },
+  "errFileNotFound": {
+    "message": "$FILE$ が ZIP 内に見つかりません",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "errZipFailed": {
+    "message": "ZIP の読み込みに失敗しました: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "valIdRequired": {
+    "message": "id は必須です"
+  },
+  "valIdFormat": {
+    "message": "id は英数字とハイフンのみ使用できます"
+  },
+  "valNameRequired": {
+    "message": "name は必須です"
+  },
+  "valVersionRequired": {
+    "message": "version は必須です"
+  },
+  "valDomainsRequired": {
+    "message": "domains は1つ以上必要です"
+  },
+  "valScriptsMainRequired": {
+    "message": "scripts.main は必須です"
+  }
+}

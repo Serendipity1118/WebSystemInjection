@@ -21,6 +21,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleStorageRequest(message).then(sendResponse);
     return true;
   }
+  if (message.type === 'WSI_FETCH_REQUEST' && sender.tab) {
+    handleFetchRequest(message).then(sendResponse);
+    return true;
+  }
 });
 
 async function injectPlugins(tabId, url) {
@@ -173,6 +177,22 @@ function executePluginCode(pluginId, config, code) {
       getAll() { return this._request('getAll'); },
     },
 
+    fetch(url, options) {
+      return new Promise((resolve) => {
+        const id = `wsi_fetch_${Date.now()}_${Math.random()}`;
+        window.addEventListener('message', function handler(e) {
+          if (e.data && e.data.type === 'WSI_FETCH_RESULT' && e.data.id === id) {
+            window.removeEventListener('message', handler);
+            resolve(e.data.result);
+          }
+        });
+        window.postMessage(
+          { type: 'WSI_FETCH_REQUEST', id, url, options: options || {} },
+          '*'
+        );
+      });
+    },
+
     getConfig() {
       return JSON.parse(JSON.stringify(this._config));
     },
@@ -226,6 +246,24 @@ async function handleStorageRequest(message) {
       return true;
     case 'getAll':
       return store;
+  }
+}
+
+async function handleFetchRequest(message) {
+  const { url, options = {} } = message;
+  try {
+    const res = await fetch(url, {
+      method: options.method || 'HEAD',
+      redirect: options.redirect || 'follow',
+    });
+    return {
+      ok: res.ok,
+      status: res.status,
+      url: res.url,
+      redirected: res.redirected,
+    };
+  } catch (err) {
+    return { error: err.message, ok: false, status: 0 };
   }
 }
 

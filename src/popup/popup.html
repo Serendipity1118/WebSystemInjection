@@ -13,7 +13,7 @@
         <h1 class="header__title">WSI</h1>
         <span class="header__subtitle">Web System Injection</span>
       </div>
-      <label class="toggle toggle--header" title="WSI 全体の有効/無効">
+      <label class="toggle toggle--header" title="WSI 全体の有効/無効" data-i18n-title="globalToggleTitle">
         <input type="checkbox" id="global-toggle" checked>
         <span class="toggle__slider"></span>
       </label>
@@ -21,23 +21,23 @@
 
     <div id="global-status-bar" class="global-status-bar global-status-bar--enabled">
       <span id="global-status-icon" class="global-status-bar__icon">●</span>
-      <span id="global-status-text">有効</span>
+      <span id="global-status-text" data-i18n="statusEnabled">有効</span>
       <span class="global-status-bar__sep">|</span>
-      <span>プラグイン: <strong id="header-plugin-count">0</strong> 件</span>
+      <span id="header-plugin-count-label">プラグイン: <strong id="header-plugin-count">0</strong> 件</span>
     </div>
 
     <main id="main-view">
       <section id="plugin-list-section">
         <div class="section-header">
-          <h2>プラグイン一覧</h2>
+          <h2 data-i18n="pluginList">プラグイン一覧</h2>
           <span id="plugin-count" class="badge">0</span>
         </div>
         <div id="plugin-list" class="plugin-list">
-          <p class="empty-message" id="empty-message">プラグインがありません</p>
+          <p class="empty-message" id="empty-message" data-i18n="noPlugins">プラグインがありません</p>
         </div>
       </section>
 
-      <button id="add-plugin-btn" class="btn btn--primary">
+      <button id="add-plugin-btn" class="btn btn--primary" data-i18n="addPlugin">
         + プラグインを追加
       </button>
     </main>
@@ -45,18 +45,18 @@
     <section id="import-view" class="hidden">
       <div class="section-header">
         <button id="back-btn" class="btn btn--icon">&larr;</button>
-        <h2>プラグインを追加</h2>
+        <h2 data-i18n="importTitle">プラグインを追加</h2>
       </div>
 
       <div id="drop-zone" class="drop-zone">
-        <p>ZIPファイルをドロップ<br>またはクリックして選択</p>
+        <p data-i18n-html="dropZoneText">ZIPファイルをドロップ<br>またはクリックして選択</p>
         <input type="file" id="file-input" accept=".zip" class="hidden">
       </div>
 
       <div id="preview-section" class="hidden">
-        <h3>プレビュー</h3>
+        <h3 data-i18n="preview">プレビュー</h3>
         <div id="preview-content" class="preview-card"></div>
-        <button id="import-btn" class="btn btn--primary">インポート</button>
+        <button id="import-btn" class="btn btn--primary" data-i18n="importBtn">インポート</button>
       </div>
 
       <div id="error-section" class="hidden">

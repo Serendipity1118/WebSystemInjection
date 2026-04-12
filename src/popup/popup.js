@@ -17,10 +17,40 @@ document.addEventListener('DOMContentLoaded', () => {
   const globalStatusBar = document.getElementById('global-status-bar');
   const globalStatusIcon = document.getElementById('global-status-icon');
   const globalStatusText = document.getElementById('global-status-text');
-  const headerPluginCount = document.getElementById('header-plugin-count');
 
   let pendingPlugin = null;
 
+  function msg(key, substitutions) {
+    return chrome.i18n.getMessage(key, substitutions) || key;
+  }
+
+  function initI18n() {
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const key = el.getAttribute('data-i18n');
+      const translated = msg(key);
+      if (translated) el.textContent = translated;
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-title');
+      const translated = msg(key);
+      if (translated) el.setAttribute('title', translated);
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+      const key = el.getAttribute('data-i18n-html');
+      const translated = msg(key);
+      if (translated) el.innerHTML = translated.replace(/\n/g, '<br>');
+    });
+  }
+
+  function updatePluginCountLabel(count) {
+    const label = document.getElementById('header-plugin-count-label');
+    if (label) {
+      label.innerHTML = msg('pluginCountLabel', [String(count)])
+        .replace(String(count), `<strong id="header-plugin-count">${count}</strong>`);
+    }
+  }
+
+  initI18n();
   initGlobalToggle();
   loadPluginList();
 
@@ -34,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     globalStatusBar.classList.toggle('global-status-bar--enabled', enabled);
     globalStatusBar.classList.toggle('global-status-bar--disabled', !enabled);
     globalStatusIcon.textContent = enabled ? '●' : '○';
-    globalStatusText.textContent = enabled ? '有効' : '無効';
+    globalStatusText.textContent = enabled ? msg('statusEnabled') : msg('statusDisabled');
     mainView.classList.toggle('main-view--disabled', !enabled);
   }
 
@@ -83,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const zip = await JSZip.loadAsync(file);
       const pluginJsonFile = zip.file('plugin.json');
       if (!pluginJsonFile) {
-        showError('plugin.json が見つかりません');
+        showError(msg('errNoPluginJson'));
         return;
       }
 
@@ -92,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         pluginDef = JSON.parse(pluginJsonText);
       } catch {
-        showError('plugin.json の形式が不正です');
+        showError(msg('errInvalidJson'));
         return;
       }
 
@@ -104,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const mainJsFile = zip.file(pluginDef.scripts.main);
       if (!mainJsFile) {
-        showError(`${pluginDef.scripts.main} が ZIP 内に見つかりません`);
+        showError(msg('errFileNotFound', [pluginDef.scripts.main]));
         return;
       }
 
@@ -138,18 +168,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       showPreview(pendingPlugin);
     } catch (err) {
-      showError(`ZIP の読み込みに失敗しました: ${err.message}`);
+      showError(msg('errZipFailed', [err.message]));
     }
   }
 
   function validatePluginJson(def) {
-    if (!def.id || typeof def.id !== 'string') return 'id は必須です';
-    if (!/^[a-zA-Z0-9-]+$/.test(def.id)) return 'id は英数字とハイフンのみ使用できます';
-    if (!def.name || typeof def.name !== 'string') return 'name は必須です';
-    if (!def.version || typeof def.version !== 'string') return 'version は必須です';
+    if (!def.id || typeof def.id !== 'string') return msg('valIdRequired');
+    if (!/^[a-zA-Z0-9-]+$/.test(def.id)) return msg('valIdFormat');
+    if (!def.name || typeof def.name !== 'string') return msg('valNameRequired');
+    if (!def.version || typeof def.version !== 'string') return msg('valVersionRequired');
     if (!def.domains || !Array.isArray(def.domains) || def.domains.length === 0)
-      return 'domains は1つ以上必要です';
-    if (!def.scripts || !def.scripts.main) return 'scripts.main は必須です';
+      return msg('valDomainsRequired');
+    if (!def.scripts || !def.scripts.main) return msg('valScriptsMainRequired');
     return null;
   }
 
@@ -162,8 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
     previewSection.classList.remove('hidden');
   }
 
-  function showError(msg) {
-    errorMessage.textContent = msg;
+  function showError(text) {
+    errorMessage.textContent = text;
     errorSection.classList.remove('hidden');
   }
 
@@ -181,9 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const existingIndex = plugins.findIndex((p) => p.id === pendingPlugin.id);
 
     if (existingIndex >= 0) {
-      const overwrite = confirm(
-        `プラグイン "${pendingPlugin.name}" は既にインストールされています。上書きしますか？`
-      );
+      const overwrite = confirm(msg('confirmOverwrite', [pendingPlugin.name]));
       if (!overwrite) return;
       plugins[existingIndex] = {
         ...pendingPlugin,
@@ -205,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadPluginList() {
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     pluginCount.textContent = String(plugins.length);
-    headerPluginCount.textContent = String(plugins.length);
+    updatePluginCountLabel(plugins.length);
 
     if (plugins.length === 0) {
       emptyMessage.classList.remove('hidden');
@@ -234,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <input type="checkbox" ${plugin.enabled ? 'checked' : ''}>
             <span class="toggle__slider"></span>
           </label>
-          <button class="btn btn--danger delete-btn">削除</button>
+          <button class="btn btn--danger delete-btn">${msg('deleteBtn')}</button>
         </div>
       `;
 
@@ -258,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function deletePlugin(pluginId, pluginName) {
-    if (!confirm(`プラグイン "${pluginName}" を削除しますか？`)) return;
+    if (!confirm(msg('confirmDelete', [pluginName]))) return;
 
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     const filtered = plugins.filter((p) => p.id !== pluginId);

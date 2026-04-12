@@ -1,0 +1,105 @@
+{
+  "extName": {
+    "message": "Web System Injection"
+  },
+  "extDescription": {
+    "message": "向现有网站注入自定义功能的插件系统"
+  },
+  "globalToggleTitle": {
+    "message": "全局启用/禁用 WSI"
+  },
+  "statusEnabled": {
+    "message": "已启用"
+  },
+  "statusDisabled": {
+    "message": "已禁用"
+  },
+  "pluginCountLabel": {
+    "message": "插件: $COUNT$ 个",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pluginList": {
+    "message": "插件列表"
+  },
+  "noPlugins": {
+    "message": "没有已安装的插件"
+  },
+  "addPlugin": {
+    "message": "+ 添加插件"
+  },
+  "importTitle": {
+    "message": "添加插件"
+  },
+  "dropZoneText": {
+    "message": "拖放ZIP文件\n或点击选择"
+  },
+  "preview": {
+    "message": "预览"
+  },
+  "importBtn": {
+    "message": "导入"
+  },
+  "deleteBtn": {
+    "message": "删除"
+  },
+  "confirmDelete": {
+    "message": "确定要删除插件 \"$NAME$\" 吗？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmOverwrite": {
+    "message": "插件 \"$NAME$\" 已安装。是否覆盖？",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "errNoPluginJson": {
+    "message": "未找到 plugin.json"
+  },
+  "errInvalidJson": {
+    "message": "plugin.json 格式无效"
+  },
+  "errFileNotFound": {
+    "message": "在ZIP中未找到 $FILE$",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "errZipFailed": {
+    "message": "读取ZIP失败: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "valIdRequired": {
+    "message": "id 为必填项"
+  },
+  "valIdFormat": {
+    "message": "id 只能包含字母、数字和连字符"
+  },
+  "valNameRequired": {
+    "message": "name 为必填项"
+  },
+  "valVersionRequired": {
+    "message": "version 为必填项"
+  },
+  "valDomainsRequired": {
+    "message": "至少需要一个域名"
+  },
+  "valScriptsMainRequired": {
+    "message": "scripts.main 为必填项"
+  }
+}

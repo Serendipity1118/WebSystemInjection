@@ -1,0 +1,105 @@
+{
+  "extName": {
+    "message": "Web System Injection"
+  },
+  "extDescription": {
+    "message": "기존 웹사이트에 사용자 정의 기능을 주입하는 플러그인 시스템"
+  },
+  "globalToggleTitle": {
+    "message": "WSI 전체 활성화/비활성화"
+  },
+  "statusEnabled": {
+    "message": "활성화"
+  },
+  "statusDisabled": {
+    "message": "비활성화"
+  },
+  "pluginCountLabel": {
+    "message": "플러그인: $COUNT$개",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pluginList": {
+    "message": "플러그인 목록"
+  },
+  "noPlugins": {
+    "message": "설치된 플러그인이 없습니다"
+  },
+  "addPlugin": {
+    "message": "+ 플러그인 추가"
+  },
+  "importTitle": {
+    "message": "플러그인 추가"
+  },
+  "dropZoneText": {
+    "message": "ZIP 파일을 드롭하거나\n클릭하여 선택"
+  },
+  "preview": {
+    "message": "미리보기"
+  },
+  "importBtn": {
+    "message": "가져오기"
+  },
+  "deleteBtn": {
+    "message": "삭제"
+  },
+  "confirmDelete": {
+    "message": "플러그인 \"$NAME$\"을(를) 삭제하시겠습니까?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmOverwrite": {
+    "message": "플러그인 \"$NAME$\"이(가) 이미 설치되어 있습니다. 덮어쓰시겠습니까?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "errNoPluginJson": {
+    "message": "plugin.json을 찾을 수 없습니다"
+  },
+  "errInvalidJson": {
+    "message": "plugin.json 형식이 올바르지 않습니다"
+  },
+  "errFileNotFound": {
+    "message": "ZIP 내에서 $FILE$을(를) 찾을 수 없습니다",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "errZipFailed": {
+    "message": "ZIP 읽기 실패: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "valIdRequired": {
+    "message": "id는 필수입니다"
+  },
+  "valIdFormat": {
+    "message": "id는 영숫자와 하이픈만 사용할 수 있습니다"
+  },
+  "valNameRequired": {
+    "message": "name은 필수입니다"
+  },
+  "valVersionRequired": {
+    "message": "version은 필수입니다"
+  },
+  "valDomainsRequired": {
+    "message": "도메인이 1개 이상 필요합니다"
+  },
+  "valScriptsMainRequired": {
+    "message": "scripts.main은 필수입니다"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "extName": {
+    "message": "Web System Injection"
+  },
+  "extDescription": {
+    "message": "A plugin system to inject custom features into existing websites"
+  },
+  "globalToggleTitle": {
+    "message": "Enable/Disable WSI globally"
+  },
+  "statusEnabled": {
+    "message": "Enabled"
+  },
+  "statusDisabled": {
+    "message": "Disabled"
+  },
+  "pluginCountLabel": {
+    "message": "Plugins: $COUNT$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "pluginList": {
+    "message": "Plugins"
+  },
+  "noPlugins": {
+    "message": "No plugins installed"
+  },
+  "addPlugin": {
+    "message": "+ Add Plugin"
+  },
+  "importTitle": {
+    "message": "Add Plugin"
+  },
+  "dropZoneText": {
+    "message": "Drop a ZIP file\nor click to select"
+  },
+  "preview": {
+    "message": "Preview"
+  },
+  "importBtn": {
+    "message": "Import"
+  },
+  "deleteBtn": {
+    "message": "Delete"
+  },
+  "confirmDelete": {
+    "message": "Delete plugin \"$NAME$\"?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmOverwrite": {
+    "message": "Plugin \"$NAME$\" is already installed. Overwrite?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "errNoPluginJson": {
+    "message": "plugin.json not found"
+  },
+  "errInvalidJson": {
+    "message": "Invalid plugin.json format"
+  },
+  "errFileNotFound": {
+    "message": "$FILE$ not found in ZIP",
+    "placeholders": {
+      "file": {
+        "content": "$1"
+      }
+    }
+  },
+  "errZipFailed": {
+    "message": "Failed to read ZIP: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "valIdRequired": {
+    "message": "id is required"
+  },
+  "valIdFormat": {
+    "message": "id must contain only alphanumeric characters and hyphens"
+  },
+  "valNameRequired": {
+    "message": "name is required"
+  },
+  "valVersionRequired": {
+    "message": "version is required"
+  },
+  "valDomainsRequired": {
+    "message": "At least one domain is required"
+  },
+  "valScriptsMainRequired": {
+    "message": "scripts.main is required"
+  }
+}
