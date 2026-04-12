@@ -26,7 +26,8 @@
   },
   "homepage": "https://github.com/Serendipity1118/WebSystemInjection#readme",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.59.1",
+    "sharp": "^0.34.5"
   },
   "dependencies": {
     "jszip": "^3.10.1"
