@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web System Injection</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1 class="header__title">WSI</h1>
+      <span class="header__subtitle">Web System Injection</span>
+    </header>
+
+    <main id="main-view">
+      <section id="plugin-list-section">
+        <div class="section-header">
+          <h2>プラグイン一覧</h2>
+          <span id="plugin-count" class="badge">0</span>
+        </div>
+        <div id="plugin-list" class="plugin-list">
+          <p class="empty-message" id="empty-message">プラグインがありません</p>
+        </div>
+      </section>
+
+      <button id="add-plugin-btn" class="btn btn--primary">
+        + プラグインを追加
+      </button>
+    </main>
+
+    <section id="import-view" class="hidden">
+      <div class="section-header">
+        <button id="back-btn" class="btn btn--icon">&larr;</button>
+        <h2>プラグインを追加</h2>
+      </div>
+
+      <div id="drop-zone" class="drop-zone">
+        <p>ZIPファイルをドロップ<br>またはクリックして選択</p>
+        <input type="file" id="file-input" accept=".zip" class="hidden">
+      </div>
+
+      <div id="preview-section" class="hidden">
+        <h3>プレビュー</h3>
+        <div id="preview-content" class="preview-card"></div>
+        <button id="import-btn" class="btn btn--primary">インポート</button>
+      </div>
+
+      <div id="error-section" class="hidden">
+        <p id="error-message" class="error-message"></p>
+      </div>
+    </section>
+  </div>
+
+  <script src="../lib/jszip.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

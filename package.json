@@ -1,0 +1,34 @@
+{
+  "name": "websysteminjection",
+  "version": "1.0.0",
+  "description": "WSI(WebSystemInjection)のページ",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:debug": "npx playwright test --debug",
+    "test:e2e:ui": "npx playwright test --ui",
+    "playwright:install": "npx playwright install chromium"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Serendipity1118/WebSystemInjection.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Serendipity1118/WebSystemInjection/issues"
+  },
+  "homepage": "https://github.com/Serendipity1118/WebSystemInjection#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

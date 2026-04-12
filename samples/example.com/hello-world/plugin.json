@@ -1,0 +1,16 @@
+{
+  "id": "hello-world",
+  "name": "Hello World",
+  "version": "1.0.0",
+  "description": "動作確認用のサンプルプラグイン",
+  "author": "WSI Team",
+  "domains": ["example.com"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "message": "Hello from WSI!"
+  }
+}
