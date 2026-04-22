@@ -45,7 +45,7 @@ Three runtime layers communicate via `chrome.runtime.sendMessage` and `window.po
 
 ### Plugin bundle format
 
-A plugin ZIP contains `plugin.json` + `main.js` (+ optional CSS listed in `styles[]`). Validation happens in [src/popup/popup.js](src/popup/popup.js) `validatePluginJson` — `id` must match `/^[a-zA-Z0-9-]+$/`, `domains[]` must be non-empty. `domains` supports `*.example.com` wildcard subdomain matching (see `matchesDomain` in [src/background.js](src/background.js)).
+A plugin ZIP contains `plugin.json` + `main.js` (+ optional CSS listed in `styles[]`). Validation happens in [src/popup/popup.js](src/popup/popup.js) `validatePluginJson` — `id` must match `/^[a-zA-Z0-9-]+$/`, `domains[]` must be non-empty. `domains` supports `*.example.com` wildcard subdomain matching, and `"*"` alone as a match-all pattern (see `matchesDomain` in [src/background.js](src/background.js)).
 
 ### SDK surface (main-world only)
 

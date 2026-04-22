@@ -295,6 +295,7 @@ async function updateBadge(tabId, url) {
 
 function matchesDomain(hostname, domains) {
   return domains.some((pattern) => {
+    if (pattern === '*') return true;
     if (pattern.startsWith('*.')) {
       const suffix = pattern.slice(2);
       return hostname === suffix || hostname.endsWith('.' + suffix);
