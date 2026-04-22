@@ -1,0 +1,15 @@
+---
+description: プラグインZIP再作成時のバージョン管理ルール
+globs: samples/**/plugin.json
+alwaysApply: false
+---
+
+# プラグイン ZIP 再作成時のバージョニング
+
+プラグインの ZIP を再作成する際は、必ず `plugin.json` の `version` をインクリメントすること。
+
+- パッチ修正: `1.0.0` → `1.0.1` → `1.0.2`
+- 機能追加: `1.0.x` → `1.1.0`
+- 破壊的変更: `1.x.x` → `2.0.0`
+
+WSI 本体の `manifest.json` の `version` も ZIP 再作成時にインクリメントすること。
