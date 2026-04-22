@@ -133,6 +133,46 @@ test.describe('Content Script 注入', () => {
     expect(borderTop).toBe('rgb(255, 0, 0)');
   });
 
+  test('"*" ワイルドカードドメインで任意のサイトでプラグインが実行される', async ({ context }) => {
+    const serviceWorker = context.serviceWorkers()[0];
+    await serviceWorker.evaluate(() => {
+      return chrome.storage.local.set({
+        plugins: [
+          {
+            id: 'wildcard-test',
+            name: 'Wildcard Test',
+            version: '1.0.0',
+            description: '',
+            domains: ['*'],
+            enabled: true,
+            code: `
+              const marker = document.createElement('div');
+              marker.id = 'wsi-wildcard-marker';
+              marker.textContent = 'WSI Wildcard Injected';
+              document.body.appendChild(marker);
+            `,
+            css: '',
+            config: {},
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      });
+    });
+
+    const page = await context.newPage();
+
+    // 1つ目のドメイン
+    await page.goto('https://example.com');
+    await expect(page.locator('#wsi-wildcard-marker')).toBeVisible();
+    await expect(page.locator('#wsi-wildcard-marker')).toHaveText('WSI Wildcard Injected');
+
+    // 異なるドメインでも同じプラグインが実行されることを確認（"*" が個別ドメインに依存しない証左）
+    await page.goto('https://example.org');
+    await expect(page.locator('#wsi-wildcard-marker')).toBeVisible();
+    await expect(page.locator('#wsi-wildcard-marker')).toHaveText('WSI Wildcard Injected');
+  });
+
   test('SDKのaddButtonでフローティングボタンが追加される', async ({ context, extensionId }) => {
     const serviceWorker = context.serviceWorkers()[0];
     await serviceWorker.evaluate(() => {
