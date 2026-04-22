@@ -1,0 +1,17 @@
+{
+  "id": "highlighter",
+  "name": "Highlighter",
+  "version": "1.0.0",
+  "description": "ページのテキストをハイライトしてURL別に永続化するプラグイン",
+  "author": "WSI Team",
+  "domains": ["*"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "color": "#fff59d",
+    "buttonPosition": "bottom-left"
+  }
+}

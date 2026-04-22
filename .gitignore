@@ -1,6 +1,7 @@
 node_modules/
 test-results/
 playwright-report/
+.claude/
 *.zip
 !samples/**/*.zip
 samples/dmm.co.jp/
