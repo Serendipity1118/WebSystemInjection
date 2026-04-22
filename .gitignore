@@ -2,5 +2,6 @@ node_modules/
 test-results/
 playwright-report/
 *.zip
+!samples/**/*.zip
 samples/dmm.co.jp/
 samples/mgstage.com/
