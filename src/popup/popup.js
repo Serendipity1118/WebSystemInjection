@@ -292,6 +292,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtered = plugins.filter((p) => p.id !== pluginId);
     await chrome.storage.local.set({ plugins: filtered });
     await chrome.storage.local.remove(`pluginData_${pluginId}`);
+
+    // ボタン位置キャッシュからも該当プラグインのエントリを除去
+    const { wsiButtonPositions = {} } = await chrome.storage.local.get('wsiButtonPositions');
+    const prefix = `${pluginId}_`;
+    let changed = false;
+    for (const k of Object.keys(wsiButtonPositions)) {
+      if (k.startsWith(prefix)) {
+        delete wsiButtonPositions[k];
+        changed = true;
+      }
+    }
+    if (changed) await chrome.storage.local.set({ wsiButtonPositions });
+
     loadPluginList();
   }
 });

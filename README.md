@@ -95,7 +95,7 @@ WSI.log('プラグインが読み込まれました');
 
 | API | 用途 |
 |---|---|
-| `WSI.addButton(options)` | フローティングボタンを追加 |
+| `WSI.addButton(options)` | フローティングボタンを追加（ドラッグで移動可能、位置はプラグイン別に永続化） |
 | `WSI.addPanel(options)` | サイドパネルを追加 |
 | `WSI.storage.get/set/remove/getAll` | プラグイン固有の永続ストレージ |
 | `WSI.fetch(url, options)` | CORS制限なしの fetch（Service Worker 経由） |

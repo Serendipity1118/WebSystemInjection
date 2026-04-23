@@ -69,6 +69,9 @@ async function injectPlugins(tabId, url) {
 }
 
 function executePluginCode(pluginId, config, code) {
+  // プラグインごとにボタンへインデックスを振って位置永続化のキーに使う
+  let _buttonCount = 0;
+
   const WSI = {
     _pluginId: pluginId,
     _config: config,
@@ -95,12 +98,103 @@ function executePluginCode(pluginId, config, code) {
         background: '#4688F1',
         color: '#fff',
         fontSize: '14px',
-        cursor: 'pointer',
+        cursor: 'grab',
         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        userSelect: 'none',
         ...(posMap[pos] || posMap['bottom-right']),
       });
-      if (options.onClick) btn.addEventListener('click', options.onClick);
+      btn.title = (options.text || '') + '（ドラッグで移動）';
       document.body.appendChild(btn);
+
+      const buttonIndex = _buttonCount++;
+
+      // content-loader 経由で保存位置を取得・保存するヘルパー
+      const posRequest = (action, position) =>
+        new Promise((resolve) => {
+          const reqId = `wsi_btnpos_${Date.now()}_${Math.random()}`;
+          window.addEventListener('message', function handler(e) {
+            if (e.data && e.data.type === 'WSI_BUTTON_POS_RESULT' && e.data.id === reqId) {
+              window.removeEventListener('message', handler);
+              resolve(e.data.result);
+            }
+          });
+          window.postMessage(
+            { type: 'WSI_BUTTON_POS_REQUEST', id: reqId, action, pluginId, buttonIndex, position },
+            '*'
+          );
+        });
+
+      // 保存位置があれば復元（画面サイズ外にならないようクランプ）
+      posRequest('get').then((saved) => {
+        if (!saved) return;
+        const maxLeft = Math.max(0, window.innerWidth - btn.offsetWidth);
+        const maxTop = Math.max(0, window.innerHeight - btn.offsetHeight);
+        const left = Math.min(parseInt(saved.left, 10) || 0, maxLeft);
+        const top = Math.min(parseInt(saved.top, 10) || 0, maxTop);
+        btn.style.left = `${Math.max(0, left)}px`;
+        btn.style.top = `${Math.max(0, top)}px`;
+        btn.style.right = 'auto';
+        btn.style.bottom = 'auto';
+      });
+
+      // ドラッグ処理
+      const DRAG_THRESHOLD = 4;
+      let isDragging = false;
+      let justDragged = false;
+      let startX = 0, startY = 0, offsetX = 0, offsetY = 0;
+
+      btn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 左クリックのみ
+        isDragging = true;
+        justDragged = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = btn.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        btn.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        if (!justDragged) {
+          const dx = Math.abs(e.clientX - startX);
+          const dy = Math.abs(e.clientY - startY);
+          if (dx + dy > DRAG_THRESHOLD) justDragged = true;
+        }
+        if (justDragged) {
+          const maxLeft = Math.max(0, window.innerWidth - btn.offsetWidth);
+          const maxTop = Math.max(0, window.innerHeight - btn.offsetHeight);
+          const left = Math.max(0, Math.min(maxLeft, e.clientX - offsetX));
+          const top = Math.max(0, Math.min(maxTop, e.clientY - offsetY));
+          btn.style.left = `${left}px`;
+          btn.style.top = `${top}px`;
+          btn.style.right = 'auto';
+          btn.style.bottom = 'auto';
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        btn.style.cursor = 'grab';
+        if (justDragged) {
+          posRequest('set', { left: btn.style.left, top: btn.style.top });
+        }
+      });
+
+      // ドラッグ直後の click は抑制（誤クリック防止）
+      btn.addEventListener('click', (e) => {
+        if (justDragged) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          justDragged = false;
+          return;
+        }
+        if (options.onClick) options.onClick(e);
+      });
+
       this.log('Button added');
       return btn;
     },
@@ -252,15 +346,21 @@ async function handleStorageRequest(message) {
 async function handleFetchRequest(message) {
   const { url, options = {} } = message;
   try {
+    const method = (options.method || 'HEAD').toUpperCase();
     const res = await fetch(url, {
-      method: options.method || 'HEAD',
+      method,
       redirect: options.redirect || 'follow',
+      headers: options.headers,
+      body: options.body,
     });
+    // HEAD はボディを持たないので読まない。GET/POST/PUT/PATCH/DELETE 時のみ text() で取得
+    const body = method === 'HEAD' ? '' : await res.text();
     return {
       ok: res.ok,
       status: res.status,
       url: res.url,
       redirected: res.redirected,
+      body,
     };
   } catch (err) {
     return { error: err.message, ok: false, status: 0 };

@@ -51,10 +51,10 @@ A plugin ZIP contains `plugin.json` + `main.js` (+ optional CSS listed in `style
 
 Exposed to plugin code via the `WSI` argument. Source of truth is `executePluginCode` in [src/background.js](src/background.js):
 
-- `WSI.addButton({ text, icon, position, onClick })` — positions: `bottom-right` / `bottom-left` / `top-right` / `top-left`.
+- `WSI.addButton({ text, icon, position, onClick })` — positions: `bottom-right` / `bottom-left` / `top-right` / `top-left`. Buttons are draggable by the user; drag positions are persisted in `chrome.storage.local` under `wsiButtonPositions` (keyed as `<pluginId>_<buttonIndex>`). `position` acts as the default before any drag.
 - `WSI.addPanel({ title, width, position: 'right'|'left', content, onOpen, onClose })`.
 - `WSI.storage.get/set/remove/getAll` — async; round-trips through postMessage → content script → `chrome.storage.local`.
-- `WSI.fetch(url, options)` — HEAD-by-default fetch proxied through the service worker to bypass page CSP/CORS. Options: `method`, `redirect`. Returns `{ ok, status, url, redirected }` or `{ error, ok:false, status:0 }`.
+- `WSI.fetch(url, options)` — HEAD-by-default fetch proxied through the service worker to bypass page CSP/CORS. Options: `method`, `redirect`, `headers`, `body`. Returns `{ ok, status, url, redirected, body }` (body is empty for HEAD, `res.text()` for other methods) or `{ error, ok:false, status:0 }`.
 - `WSI.getConfig()`, `WSI.log(msg)`, `WSI.onPageLoad(cb)` — `onPageLoad` hooks SPA navigation via MutationObserver + `popstate`.
 
 ## Conventions

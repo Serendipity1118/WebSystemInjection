@@ -21,6 +21,29 @@
       return;
     }
 
+    if (e.data.type === 'WSI_BUTTON_POS_REQUEST') {
+      const { id, action, pluginId, buttonIndex, position } = e.data;
+      const storageKey = 'wsiButtonPositions';
+      const mapKey = `${pluginId}_${buttonIndex}`;
+      let result;
+      try {
+        const data = await chrome.storage.local.get(storageKey);
+        const store = data[storageKey] || {};
+        if (action === 'get') {
+          result = store[mapKey] || null;
+        } else if (action === 'set') {
+          store[mapKey] = position;
+          await chrome.storage.local.set({ [storageKey]: store });
+          result = true;
+        }
+      } catch (err) {
+        console.error('[WSI] Button position bridge error:', err);
+        result = null;
+      }
+      window.postMessage({ type: 'WSI_BUTTON_POS_RESULT', id, result }, '*');
+      return;
+    }
+
     if (e.data.type !== 'WSI_STORAGE_REQUEST') return;
 
     const { id, pluginId, action, key, value } = e.data;
