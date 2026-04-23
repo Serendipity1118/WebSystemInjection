@@ -3,6 +3,6 @@ test-results/
 playwright-report/
 .claude/
 *.zip
-!samples/**/*.zip
+!**/samples/**/*.zip
 samples/dmm.co.jp/
 samples/mgstage.com/

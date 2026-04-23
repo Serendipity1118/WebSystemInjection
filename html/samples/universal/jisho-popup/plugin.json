@@ -1,0 +1,21 @@
+{
+  "id": "jisho-popup",
+  "name": "Jisho Popup",
+  "version": "1.0.0",
+  "description": "日本語テキストを選択すると Jisho.org API で辞書検索するプラグイン",
+  "author": "WSI Team",
+  "domains": ["*"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "buttonPosition": "bottom-left",
+    "panelPosition": "right",
+    "panelWidth": "380px",
+    "maxResults": 10,
+    "maxSensesPerEntry": 3,
+    "apiUrl": "https://jisho.org/api/v1/search/words"
+  }
+}

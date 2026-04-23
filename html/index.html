@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WSI プラグイン開発ガイド | Web System Injection</title>
+  <meta name="description" content="WSI (Web System Injection) のプラグインを数十行のJavaScriptで作るための完全ガイド。SDK、ドメイン指定、ZIP化、デバッグ、サンプルを網羅。">
+  <meta property="og:title" content="WSI プラグイン開発ガイド">
+  <meta property="og:description" content="Chrome拡張 WSI にあなただけの機能を追加するための完全ガイド">
+  <meta property="og:type" content="website">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+
+  <style>
+    /* =========================================================
+       Design tokens
+       ========================================================= */
+    :root {
+      --color-bg: #ffffff;
+      --color-bg-subtle: #f8fafc;
+      --color-bg-card: #ffffff;
+      --color-bg-code: #1e1e2e;
+      --color-bg-hero-grad-from: #e0ecff;
+      --color-bg-hero-grad-to: #f5eeff;
+
+      --color-text: #0f172a;
+      --color-text-muted: #475569;
+      --color-text-subtle: #64748b;
+      --color-text-on-primary: #ffffff;
+
+      --color-border: #e2e8f0;
+      --color-border-strong: #cbd5e1;
+
+      --color-primary: #4688F1;
+      --color-primary-hover: #3a74d4;
+      --color-primary-soft: #e3efff;
+
+      --color-accent: #10b981;
+      --color-warning: #f59e0b;
+      --color-danger: #ef4444;
+
+      --font-body: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+
+      --toc-width: 260px;
+      --content-max: 780px;
+    }
+
+    html.dark {
+      --color-bg: #0b1020;
+      --color-bg-subtle: #0f1629;
+      --color-bg-card: #131b32;
+      --color-bg-code: #0f1629;
+      --color-bg-hero-grad-from: #1a254a;
+      --color-bg-hero-grad-to: #261f4a;
+
+      --color-text: #e2e8f0;
+      --color-text-muted: #94a3b8;
+      --color-text-subtle: #64748b;
+
+      --color-border: #1e293b;
+      --color-border-strong: #334155;
+
+      --color-primary: #60a5fa;
+      --color-primary-hover: #93c5fd;
+      --color-primary-soft: #1e3a5f;
+    }
+
+    /* =========================================================
+       Reset & base
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.75;
+      color: var(--color-text);
+      background: var(--color-bg);
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "palt";
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    a { color: var(--color-primary); text-decoration: none; transition: color 0.15s; }
+    a:hover { color: var(--color-primary-hover); text-decoration: underline; }
+
+    h1, h2, h3, h4 {
+      font-family: var(--font-body);
+      font-weight: 700;
+      line-height: 1.3;
+      margin: 0;
+      color: var(--color-text);
+      letter-spacing: -0.02em;
+    }
+    h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.03em; }
+    h2 { font-size: 2rem; margin: 4rem 0 1.25rem; }
+    h3 { font-size: 1.35rem; margin: 2.5rem 0 0.75rem; }
+    h4 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--color-text-muted); }
+    p { margin: 0 0 1rem; }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.875em;
+      background: var(--color-bg-subtle);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--color-border);
+      color: var(--color-primary);
+    }
+    pre code { background: none; padding: 0; border: none; color: inherit; font-size: 0.875rem; }
+
+    /* =========================================================
+       Top navigation
+       ========================================================= */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+      backdrop-filter: saturate(180%) blur(12px);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .topnav__inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    .topnav__brand {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-weight: 700;
+      color: var(--color-text);
+      font-size: 1rem;
+    }
+    .topnav__brand:hover { text-decoration: none; }
+    .topnav__logo {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--color-primary), #8b5cf6);
+      border-radius: var(--radius-sm);
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 0.8rem;
+    }
+    .topnav__links { display: flex; gap: 1.5rem; margin-left: auto; align-items: center; }
+    .topnav__links a {
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .topnav__links a:hover { color: var(--color-primary); text-decoration: none; }
+    .topnav__theme {
+      background: none; border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+      color: var(--color-text-muted);
+      font-size: 1rem;
+      transition: all 0.15s;
+    }
+    .topnav__theme:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+    /* =========================================================
+       Hero
+       ========================================================= */
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 6rem 1.5rem 5rem;
+      background: linear-gradient(135deg, var(--color-bg-hero-grad-from) 0%, var(--color-bg-hero-grad-to) 100%);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .hero::before, .hero::after {
+      content: ''; position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .hero::before {
+      top: -100px; left: -100px;
+      width: 400px; height: 400px;
+      background: var(--color-primary);
+    }
+    .hero::after {
+      bottom: -150px; right: -100px;
+      width: 500px; height: 500px;
+      background: #8b5cf6;
+    }
+    html.dark .hero::before, html.dark .hero::after { opacity: 0.3; }
+    .hero__inner {
+      position: relative;
+      max-width: 1000px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .hero__badge {
+      display: inline-block;
+      padding: 0.3rem 0.85rem;
+      background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--color-text-muted);
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(4px);
+    }
+    .hero__title {
+      font-size: clamp(2.25rem, 5vw, 3.75rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(135deg, var(--color-text) 40%, var(--color-primary) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero__subtitle {
+      font-size: 1.15rem;
+      color: var(--color-text-muted);
+      max-width: 640px;
+      margin: 0 auto 2rem;
+      line-height: 1.75;
+    }
+    .hero__cta {
+      display: flex; gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+    .btn--primary {
+      background: var(--color-primary);
+      color: var(--color-text-on-primary);
+    }
+    .btn--primary:hover {
+      background: var(--color-primary-hover);
+      text-decoration: none;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .btn--secondary {
+      background: var(--color-bg-card);
+      color: var(--color-text);
+      border-color: var(--color-border-strong);
+    }
+    .btn--secondary:hover {
+      text-decoration: none;
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    /* =========================================================
+       Layout
+       ========================================================= */
+    .layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+      display: grid;
+      grid-template-columns: var(--toc-width) minmax(0, 1fr);
+      gap: 3rem;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; gap: 0; }
+    }
+
+    /* =========================================================
+       Sidebar TOC
+       ========================================================= */
+    .toc {
+      position: sticky; top: 70px;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      padding-right: 0.5rem;
+      font-size: 0.9rem;
+    }
+    @media (max-width: 900px) {
+      .toc { display: none; }
+    }
+    .toc__title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-subtle);
+      margin-bottom: 0.75rem;
+    }
+    .toc__list {
+      list-style: none;
+      padding: 0; margin: 0;
+      border-left: 1px solid var(--color-border);
+    }
+    .toc__list li { margin: 0; }
+    .toc__list a {
+      display: block;
+      padding: 0.35rem 1rem;
+      color: var(--color-text-muted);
+      font-size: 0.88rem;
+      border-left: 2px solid transparent;
+      margin-left: -1px;
+      transition: all 0.1s;
+    }
+    .toc__list a:hover {
+      color: var(--color-primary);
+      text-decoration: none;
+      background: var(--color-bg-subtle);
+    }
+    .toc__list a.active {
+      color: var(--color-primary);
+      border-left-color: var(--color-primary);
+      font-weight: 600;
+      background: var(--color-primary-soft);
+    }
+
+    /* =========================================================
+       Content
+       ========================================================= */
+    .content {
+      max-width: var(--content-max);
+      min-width: 0;
+    }
+    .content > section:first-child h2 { margin-top: 0; }
+
+    .content section {
+      scroll-margin-top: 80px;
+    }
+
+    .section-icon {
+      display: inline-grid; place-items: center;
+      width: 2rem; height: 2rem;
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      border-radius: var(--radius-sm);
+      font-size: 1.1rem;
+      margin-right: 0.5rem;
+      vertical-align: -0.4em;
+    }
+
+    .anchor {
+      opacity: 0;
+      margin-left: 0.4em;
+      font-weight: 400;
+      font-size: 0.75em;
+      color: var(--color-text-subtle);
+      transition: opacity 0.15s;
+    }
+    h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+    /* =========================================================
+       Code blocks
+       ========================================================= */
+    .code-block {
+      margin: 1.25rem 0;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-code);
+      box-shadow: var(--shadow-sm);
+    }
+    .code-block__header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 1rem;
+      background: color-mix(in srgb, var(--color-bg-code) 90%, #000);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.78rem;
+      color: #9ca3af;
+      font-family: var(--font-mono);
+    }
+    .code-block__filename {
+      font-weight: 500;
+    }
+    .code-block__copy {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #9ca3af;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: var(--font-body);
+      transition: all 0.15s;
+    }
+    .code-block__copy:hover {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .code-block__copy.copied {
+      color: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+    .code-block pre[class*="language-"] {
+      margin: 0 !important;
+      padding: 1rem 1.25rem !important;
+      background: transparent !important;
+      border-radius: 0 !important;
+      overflow-x: auto;
+    }
+
+    /* =========================================================
+       Callouts
+       ========================================================= */
+    .callout {
+      margin: 1.25rem 0;
+      padding: 1rem 1.25rem;
+      border-radius: var(--radius-md);
+      border-left: 4px solid;
+      background: var(--color-bg-subtle);
+      font-size: 0.95rem;
+    }
+    .callout__title {
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .callout p:last-child { margin-bottom: 0; }
+    .callout--info { border-color: var(--color-primary); }
+    .callout--info .callout__title { color: var(--color-primary); }
+    .callout--tip { border-color: var(--color-accent); }
+    .callout--tip .callout__title { color: var(--color-accent); }
+    .callout--warning { border-color: var(--color-warning); }
+    .callout--warning .callout__title { color: var(--color-warning); }
+
+    /* =========================================================
+       Tables
+       ========================================================= */
+    .doc-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: 0.9rem;
+    }
+    .doc-table th, .doc-table td {
+      text-align: left;
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid var(--color-border);
+      vertical-align: top;
+    }
+    .doc-table th {
+      font-weight: 600;
+      color: var(--color-text-muted);
+      background: var(--color-bg-subtle);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .doc-table tr:hover td {
+      background: var(--color-bg-subtle);
+    }
+    .doc-table code { font-size: 0.82em; }
+
+    .pill {
+      display: inline-block;
+      padding: 0.1rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .pill--required { background: #fef2f2; color: #991b1b; }
+    .pill--optional { background: #f3f4f6; color: #6b7280; }
+    html.dark .pill--required { background: #7f1d1d; color: #fecaca; }
+    html.dark .pill--optional { background: #374151; color: #d1d5db; }
+
+    /* =========================================================
+       Sample gallery
+       ========================================================= */
+    .sample-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .sample-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      transition: all 0.15s;
+      color: var(--color-text);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .sample-card:hover {
+      border-color: var(--color-primary);
+      text-decoration: none;
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .sample-card__header {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+    .sample-card__emoji {
+      width: 44px; height: 44px;
+      display: grid; place-items: center;
+      font-size: 1.5rem;
+      background: var(--color-primary-soft);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+    }
+    .sample-card__name {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--color-text);
+    }
+    .sample-card__target {
+      font-size: 0.75rem;
+      color: var(--color-text-subtle);
+      font-family: var(--font-mono);
+    }
+    .sample-card__desc {
+      font-size: 0.9rem;
+      color: var(--color-text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+    .sample-card__sdk {
+      font-size: 0.75rem;
+      color: var(--color-text-subtle);
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--color-border);
+      margin-top: auto;
+    }
+    .sample-card__sdk strong {
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+
+    /* =========================================================
+       SDK API box
+       ========================================================= */
+    .api-box {
+      margin: 1.5rem 0;
+      padding: 1.5rem;
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+    .api-box__signature {
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--color-primary);
+      margin: 0 0 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-bg-card);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border);
+      overflow-x: auto;
+    }
+    .api-box__desc { color: var(--color-text-muted); margin: 0.5rem 0 1rem; }
+
+    /* =========================================================
+       FAQ
+       ========================================================= */
+    .faq details {
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--color-bg-card);
+    }
+    .faq summary {
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      font-weight: 600;
+      list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--color-text);
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after {
+      content: '+';
+      font-size: 1.3rem;
+      color: var(--color-text-subtle);
+      transition: transform 0.2s;
+    }
+    .faq details[open] summary::after { content: '−'; }
+    .faq details[open] summary { border-bottom: 1px solid var(--color-border); }
+    .faq details > *:not(summary) {
+      padding: 1rem 1.25rem;
+    }
+    .faq details > p { margin: 0; }
+
+    /* =========================================================
+       Kbd
+       ========================================================= */
+    kbd {
+      font-family: var(--font-mono);
+      font-size: 0.8em;
+      padding: 0.15em 0.45em;
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-strong);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      color: var(--color-text);
+    }
+
+    /* =========================================================
+       Footer
+       ========================================================= */
+    .footer {
+      border-top: 1px solid var(--color-border);
+      padding: 2rem 1.5rem;
+      background: var(--color-bg-subtle);
+      text-align: center;
+      color: var(--color-text-subtle);
+      font-size: 0.88rem;
+    }
+    .footer a { color: var(--color-text-muted); }
+    .footer__links { margin-top: 0.5rem; }
+    .footer__links a { margin: 0 0.75rem; }
+
+    /* =========================================================
+       Animations
+       ========================================================= */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero__inner > * { animation: fadeUp 0.6s ease-out both; }
+    .hero__badge { animation-delay: 0s; }
+    .hero__title { animation-delay: 0.1s; }
+    .hero__subtitle { animation-delay: 0.2s; }
+    .hero__cta { animation-delay: 0.3s; }
+
+    /* =========================================================
+       Utilities
+       ========================================================= */
+    ul, ol { padding-left: 1.5rem; }
+    ul li, ol li { margin-bottom: 0.35rem; }
+    hr { border: none; border-top: 1px solid var(--color-border); margin: 3rem 0; }
+  </style>
+</head>
+<body>
+  <!-- =====================================================
+       Top navigation
+       ===================================================== -->
+  <nav class="topnav">
+    <div class="topnav__inner">
+      <a href="#top" class="topnav__brand">
+        <span class="topnav__logo">W</span>
+        WSI Plugin Guide
+      </a>
+      <div class="topnav__links">
+        <a href="#quick-start">5分で始める</a>
+        <a href="#sdk">SDK</a>
+        <a href="#samples">サンプル</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">GitHub</a>
+        <button class="topnav__theme" id="themeToggle" aria-label="テーマ切り替え" title="テーマ切り替え">🌓</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =====================================================
+       Hero
+       ===================================================== -->
+  <header class="hero" id="top">
+    <div class="hero__inner">
+      <div class="hero__badge">📘 WSI v1.3.0 対応</div>
+      <h1 class="hero__title">WSI プラグイン開発ガイド</h1>
+      <p class="hero__subtitle">
+        Chrome 拡張 <strong>Web System Injection</strong> に自分だけの機能を追加しよう。<br>
+        数十行の JavaScript で、任意の Web サイトにボタン・パネル・外部API連携を実装できます。
+      </p>
+      <div class="hero__cta">
+        <a href="#quick-start" class="btn btn--primary">🚀 5分で始める</a>
+        <a href="#samples" class="btn btn--secondary">📦 サンプル 6個を見る</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- =====================================================
+       Layout: TOC + content
+       ===================================================== -->
+  <div class="layout">
+    <aside class="toc">
+      <div class="toc__title">目次</div>
+      <ul class="toc__list" id="tocList">
+        <li><a href="#quick-start">5分で始める</a></li>
+        <li><a href="#structure">プラグインの構造</a></li>
+        <li><a href="#sdk">SDK リファレンス</a></li>
+        <li><a href="#domains">ドメインマッチング</a></li>
+        <li><a href="#config">設定 (config)</a></li>
+        <li><a href="#packaging">パッケージング</a></li>
+        <li><a href="#samples">サンプルギャラリー</a></li>
+        <li><a href="#debugging">デバッグ</a></li>
+        <li><a href="#best-practices">ベストプラクティス</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </aside>
+
+    <main class="content">
+      <!-- ==========================================================
+           Quick Start
+           ========================================================== -->
+      <section id="quick-start">
+        <h2><span class="section-icon">🚀</span>5分で始める<a href="#quick-start" class="anchor">#</a></h2>
+        <p>
+          最小のプラグインは <strong>2ファイル</strong>（<code>plugin.json</code> と <code>main.js</code>）だけで動きます。
+          ここでは <code>example.com</code> を開くと右下に 👋 ボタンを表示する「Hello World」を作ってみましょう。
+        </p>
+
+        <h3>Step 1. フォルダを作る</h3>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">terminal</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-bash">mkdir my-first-plugin
+cd my-first-plugin</code></pre>
+        </div>
+
+        <h3>Step 2. <code>plugin.json</code> を作る</h3>
+        <p>プラグイン定義ファイル。ID・対象ドメイン・エントリースクリプトを指定します。</p>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">plugin.json</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-json">{
+  "id": "my-first-plugin",
+  "name": "My First Plugin",
+  "version": "1.0.0",
+  "description": "初めてのWSIプラグイン",
+  "domains": ["example.com"],
+  "scripts": { "main": "main.js" }
+}</code></pre>
+        </div>
+
+        <h3>Step 3. <code>main.js</code> を作る</h3>
+        <p>プラグイン本体。<code>WSI</code> オブジェクト経由で拡張機能のAPIにアクセスします。</p>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">main.js</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-javascript">WSI.addButton({
+  text: '👋',
+  position: 'bottom-right',
+  onClick: () => {
+    alert('Hello from WSI!');
+  },
+});
+
+WSI.log('プラグインが読み込まれました');</code></pre>
+        </div>
+
+        <h3>Step 4. ZIPにまとめる</h3>
+        <p>2ファイルを ZIP 圧縮します。<strong>フォルダを圧縮するのではなく、ファイルを選択して圧縮</strong>してください（plugin.json が ZIP のルートに来る必要があります）。</p>
+        <div class="callout callout--warning">
+          <div class="callout__title">⚠️ よくあるミス</div>
+          <p><code>my-first-plugin/</code> フォルダごと圧縮すると、ZIP内部が <code>my-first-plugin/plugin.json</code> の階層になってしまい、WSIが plugin.json を見つけられません。必ず中身のファイルを選択して圧縮してください。</p>
+        </div>
+
+        <h3>Step 5. WSIにインポート</h3>
+        <ol>
+          <li>Chrome で <code>chrome://extensions</code> を開き、WSI が読み込まれていることを確認</li>
+          <li>WSI アイコンをクリックしてポップアップを開く</li>
+          <li>「プラグインを追加」をクリック</li>
+          <li>作った ZIP ファイルをドラッグ＆ドロップ</li>
+          <li>プレビュー内容を確認して「インポート」</li>
+          <li><a href="https://example.com" target="_blank" rel="noopener">https://example.com</a> を開く → 右下に 👋 ボタンが出たら成功 🎉</li>
+        </ol>
+
+        <div class="callout callout--tip">
+          <div class="callout__title">💡 Tip</div>
+          <p>ボタンは<strong>ドラッグで移動可能</strong>です。使いやすい位置に配置できます。位置は <code>chrome.storage.local</code> に保存され、次回以降は覚えてくれます。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           Structure
+           ========================================================== -->
+      <section id="structure">
+        <h2><span class="section-icon">📦</span>プラグインの構造<a href="#structure" class="anchor">#</a></h2>
+        <p>WSI プラグインは以下の最大3ファイルで構成されます。</p>
+
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">plugin-zip-内部</span>
+          </div><pre><code class="language-bash">my-plugin.zip
+├── plugin.json    # 必須: プラグイン定義
+├── main.js        # 必須: プラグイン本体
+└── style.css      # 任意: CSS（複数可）</code></pre>
+        </div>
+
+        <h3><code>plugin.json</code> のフィールド</h3>
+        <table class="doc-table">
+          <thead>
+            <tr><th>フィールド</th><th>型</th><th>必須</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td><td>string</td>
+              <td><span class="pill pill--required">必須</span></td>
+              <td>一意識別子。英数字とハイフンのみ (<code>/^[a-zA-Z0-9-]+$/</code>)</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td><td>string</td>
+              <td><span class="pill pill--required">必須</span></td>
+              <td>表示名。WSI ポップアップに表示されます</td>
+            </tr>
+            <tr>
+              <td><code>version</code></td><td>string</td>
+              <td><span class="pill pill--required">必須</span></td>
+              <td>セマンティックバージョニング（例: <code>1.0.0</code>）</td>
+            </tr>
+            <tr>
+              <td><code>description</code></td><td>string</td>
+              <td><span class="pill pill--optional">任意</span></td>
+              <td>説明文。プラグインカードに表示</td>
+            </tr>
+            <tr>
+              <td><code>author</code></td><td>string</td>
+              <td><span class="pill pill--optional">任意</span></td>
+              <td>作者名</td>
+            </tr>
+            <tr>
+              <td><code>domains</code></td><td>string[]</td>
+              <td><span class="pill pill--required">必須</span></td>
+              <td>対象ドメインの配列（1つ以上）。詳細は <a href="#domains">ドメインマッチング</a></td>
+            </tr>
+            <tr>
+              <td><code>scripts.main</code></td><td>string</td>
+              <td><span class="pill pill--required">必須</span></td>
+              <td>メインJSファイル名（通常 <code>main.js</code>）</td>
+            </tr>
+            <tr>
+              <td><code>scripts.runAt</code></td><td>string</td>
+              <td><span class="pill pill--optional">任意</span></td>
+              <td>注入タイミング。デフォルト <code>document_idle</code></td>
+            </tr>
+            <tr>
+              <td><code>styles</code></td><td>string[]</td>
+              <td><span class="pill pill--optional">任意</span></td>
+              <td>CSSファイル名の配列。複数指定可</td>
+            </tr>
+            <tr>
+              <td><code>config</code></td><td>object</td>
+              <td><span class="pill pill--optional">任意</span></td>
+              <td>プラグイン固有の設定オブジェクト。<code>WSI.getConfig()</code> で取得</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3><code>main.js</code> の実行環境</h3>
+        <p>
+          プラグインコードは対象ページの <strong>メインワールド</strong>（ページ自身のJSと同じ実行コンテキスト）で実行されます。
+          つまり <code>window</code>, <code>document</code>, <code>localStorage</code> など、ページ側の全APIにアクセス可能です。
+        </p>
+        <p>
+          ただし <strong><code>chrome.*</code> 拡張機能APIは直接使えません</strong>。
+          これは WSI がセキュリティのため意図的に切っているもので、代わりに必要な機能は <code>WSI.*</code> SDK 経由で提供されます。
+        </p>
+        <div class="callout callout--info">
+          <div class="callout__title">ℹ️ メインワールドとは</div>
+          <p>Chrome 拡張には「Isolated World」（拡張機能専用のサンドボックス）と「Main World」（ページ自身の世界）があります。WSI プラグインは後者で動くため、ページのJSと同じDOM・同じJSグローバルを共有します。結果、ページ側の React や Vue の内部状態にもアクセス可能です（自己責任）。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           SDK Reference
+           ========================================================== -->
+      <section id="sdk">
+        <h2><span class="section-icon">🧰</span>SDK リファレンス<a href="#sdk" class="anchor">#</a></h2>
+        <p>
+          プラグインコードには <code>WSI</code> という引数でSDKオブジェクトが渡されます。以下のAPIが利用可能です。
+        </p>
+
+        <!-- addButton -->
+        <div class="api-box" id="sdk-addButton">
+          <h3><code>WSI.addButton(options)</code></h3>
+          <div class="api-box__signature">
+            WSI.addButton({ text, icon, position, onClick }) → HTMLButtonElement
+          </div>
+          <p class="api-box__desc">
+            画面にフローティングボタンを追加します。ユーザは<strong>ドラッグで自由に移動</strong>可能で、位置は <code>chrome.storage.local</code> に永続化されます。
+          </p>
+
+          <table class="doc-table">
+            <thead><tr><th>パラメータ</th><th>型</th><th>説明</th></tr></thead>
+            <tbody>
+              <tr><td><code>text</code></td><td>string</td><td>ボタンのラベル</td></tr>
+              <tr><td><code>icon</code></td><td>string</td><td>任意のアイコン文字（絵文字など）。指定するとtextの前に表示</td></tr>
+              <tr><td><code>position</code></td><td>string</td><td>初期位置: <code>bottom-right</code> / <code>bottom-left</code> / <code>top-right</code> / <code>top-left</code></td></tr>
+              <tr><td><code>onClick</code></td><td>function</td><td>クリック時コールバック（ドラッグ直後は自動抑制）</td></tr>
+            </tbody>
+          </table>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">WSI.addButton({
+  text: 'Say Hi',
+  icon: '👋',
+  position: 'bottom-right',
+  onClick: () => alert('Hi!'),
+});</code></pre>
+          </div>
+        </div>
+
+        <!-- addPanel -->
+        <div class="api-box" id="sdk-addPanel">
+          <h3><code>WSI.addPanel(options)</code></h3>
+          <div class="api-box__signature">
+            WSI.addPanel({ title, width, position, content, onOpen, onClose }) → HTMLDivElement
+          </div>
+          <p class="api-box__desc">
+            画面サイドにスライドパネルを追加します。目次・検索結果・設定画面などに使えます。
+          </p>
+
+          <table class="doc-table">
+            <thead><tr><th>パラメータ</th><th>型</th><th>説明</th></tr></thead>
+            <tbody>
+              <tr><td><code>title</code></td><td>string</td><td>パネルヘッダーのタイトル</td></tr>
+              <tr><td><code>width</code></td><td>string</td><td>CSS幅（例: <code>"300px"</code>, <code>"25vw"</code>）</td></tr>
+              <tr><td><code>position</code></td><td>string</td><td><code>right</code>（デフォルト）または <code>left</code></td></tr>
+              <tr><td><code>content</code></td><td>string</td><td>パネル本文のHTML文字列（<code>innerHTML</code>にセット）</td></tr>
+              <tr><td><code>onOpen</code></td><td>function</td><td>表示直後のコールバック</td></tr>
+              <tr><td><code>onClose</code></td><td>function</td><td>×ボタンで閉じた直後のコールバック</td></tr>
+            </tbody>
+          </table>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">const panel = WSI.addPanel({
+  title: '設定',
+  width: '320px',
+  position: 'right',
+  content: '&lt;p&gt;ここに内容&lt;/p&gt;',
+  onClose: () =&gt; console.log('panel closed'),
+});</code></pre>
+          </div>
+
+          <div class="callout callout--warning">
+            <div class="callout__title">⚠️ XSS注意</div>
+            <p><code>content</code> は <code>innerHTML</code> にセットされるため、ユーザ入力や外部文字列を直接渡すと XSS 脆弱性になります。必ずエスケープしてください。</p>
+          </div>
+        </div>
+
+        <!-- storage -->
+        <div class="api-box" id="sdk-storage">
+          <h3><code>WSI.storage</code></h3>
+          <p class="api-box__desc">
+            プラグイン固有の永続ストレージ。<code>chrome.storage.local</code> にプラグインID名前空間で保存されます。
+            すべて非同期（Promise を返す）です。
+          </p>
+
+          <div class="api-box__signature">
+            WSI.storage.get(key) → Promise&lt;value | undefined&gt;
+          </div>
+          <div class="api-box__signature">
+            WSI.storage.set(key, value) → Promise&lt;true&gt;
+          </div>
+          <div class="api-box__signature">
+            WSI.storage.remove(key) → Promise&lt;true&gt;
+          </div>
+          <div class="api-box__signature">
+            WSI.storage.getAll() → Promise&lt;{ [key]: value }&gt;
+          </div>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">// 保存
+await WSI.storage.set('userName', '山田太郎');
+
+// 取得
+const name = await WSI.storage.get('userName');
+
+// 全件取得（プラグインのストレージ全体）
+const all = await WSI.storage.getAll();
+
+// 削除
+await WSI.storage.remove('userName');</code></pre>
+          </div>
+
+          <div class="callout callout--tip">
+            <div class="callout__title">💡 Tip</div>
+            <p>URL別にデータを分けたいときは、キー名に <code>location.origin + location.pathname</code> を含めると自然に名前空間を切れます。Highlighter サンプルがこの方式を使っています。</p>
+          </div>
+        </div>
+
+        <!-- fetch -->
+        <div class="api-box" id="sdk-fetch">
+          <h3><code>WSI.fetch(url, options)</code></h3>
+          <div class="api-box__signature">
+            WSI.fetch(url, { method, redirect, headers, body }) → Promise&lt;Response&gt;
+          </div>
+          <p class="api-box__desc">
+            CORS制限を<strong>バイパス</strong>して任意のURLにリクエストを送れる特別な fetch。
+            内部的には Service Worker で <code>fetch()</code> を実行するため、ページのCORSポリシーに縛られません。
+          </p>
+
+          <table class="doc-table">
+            <thead><tr><th>オプション</th><th>型</th><th>説明</th></tr></thead>
+            <tbody>
+              <tr><td><code>method</code></td><td>string</td><td>HTTPメソッド。デフォルト <code>"HEAD"</code></td></tr>
+              <tr><td><code>redirect</code></td><td>string</td><td><code>"follow"</code>（デフォルト）/ <code>"manual"</code> / <code>"error"</code></td></tr>
+              <tr><td><code>headers</code></td><td>object</td><td>リクエストヘッダー</td></tr>
+              <tr><td><code>body</code></td><td>string</td><td>リクエストボディ（POST/PUT 等）</td></tr>
+            </tbody>
+          </table>
+
+          <h4>戻り値（成功時）</h4>
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">response shape</span>
+            </div><pre><code class="language-javascript">{
+  ok: boolean,         // HTTP 2xx なら true
+  status: number,      // HTTPステータスコード
+  url: string,         // リダイレクト後の最終URL
+  redirected: boolean, // リダイレクトが発生したか
+  body: string,        // レスポンスボディ（HEAD時は空文字列）
+}</code></pre>
+          </div>
+
+          <h4>戻り値（失敗時）</h4>
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">error shape</span>
+            </div><pre><code class="language-javascript">{ error: string, ok: false, status: 0 }</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例: 外部APIを叩いてJSONを取得</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">const res = await WSI.fetch(
+  'https://jisho.org/api/v1/search/words?keyword=猫',
+  { method: 'GET' }
+);
+
+if (res.ok) {
+  const data = JSON.parse(res.body);
+  console.log(data);
+} else {
+  console.error('fetch error', res.error || res.status);
+}</code></pre>
+          </div>
+        </div>
+
+        <!-- onPageLoad -->
+        <div class="api-box" id="sdk-onPageLoad">
+          <h3><code>WSI.onPageLoad(callback)</code></h3>
+          <div class="api-box__signature">
+            WSI.onPageLoad((newUrl) =&gt; void) → void
+          </div>
+          <p class="api-box__desc">
+            SPA等で <code>location.href</code> が変わった瞬間に <code>callback</code> が呼ばれます。
+            React Router や Next.js のクライアントサイド遷移にも反応します（MutationObserver + popstate 実装）。
+          </p>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">WSI.onPageLoad((url) => {
+  WSI.log(`ナビゲーション: ${url}`);
+  // 再初期化処理
+});</code></pre>
+          </div>
+
+          <div class="callout callout--info">
+            <div class="callout__title">ℹ️ 初回実行について</div>
+            <p><code>onPageLoad</code> は<strong>最初のページロード時には発火しません</strong>。最初の処理は <code>main.js</code> のトップレベルコードに書き、SPA遷移への追従のみ <code>onPageLoad</code> で処理してください。</p>
+          </div>
+        </div>
+
+        <!-- getConfig -->
+        <div class="api-box" id="sdk-getConfig">
+          <h3><code>WSI.getConfig()</code></h3>
+          <div class="api-box__signature">
+            WSI.getConfig() → object
+          </div>
+          <p class="api-box__desc">
+            <code>plugin.json</code> の <code>config</code> フィールドの値を deep-copy で返します。
+            プラグインをユーザー設定可能にするための主要な仕組みです。
+          </p>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">plugin.json</span>
+            </div><pre><code class="language-json">{
+  "id": "my-plugin",
+  "config": {
+    "message": "こんにちは",
+    "color": "#4688F1"
+  }
+}</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">main.js</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">const config = WSI.getConfig();
+console.log(config.message); // "こんにちは"
+console.log(config.color);   // "#4688F1"</code></pre>
+          </div>
+        </div>
+
+        <!-- log -->
+        <div class="api-box" id="sdk-log">
+          <h3><code>WSI.log(message)</code></h3>
+          <div class="api-box__signature">
+            WSI.log(message: string) → void
+          </div>
+          <p class="api-box__desc">
+            プラグインIDをプレフィックスとして付けた <code>console.log</code>。どのプラグインが何をログったか明確になります。
+          </p>
+
+          <div class="code-block">
+            <div class="code-block__header">
+              <span class="code-block__filename">使用例</span>
+              <button class="code-block__copy">Copy</button>
+            </div><pre><code class="language-javascript">WSI.log('プラグイン起動');
+// コンソール出力: [WSI:my-plugin] プラグイン起動</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           Domain matching
+           ========================================================== -->
+      <section id="domains">
+        <h2><span class="section-icon">🎯</span>ドメインマッチング<a href="#domains" class="anchor">#</a></h2>
+        <p>
+          <code>domains</code> 配列に書いたパターンのどれかに一致するドメインで、プラグインが実行されます。
+        </p>
+
+        <table class="doc-table">
+          <thead>
+            <tr><th>パターン</th><th>マッチする例</th><th>マッチしない例</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>"example.com"</code></td>
+              <td><code>example.com</code></td>
+              <td><code>www.example.com</code> / <code>example.org</code></td>
+            </tr>
+            <tr>
+              <td><code>"*.example.com"</code></td>
+              <td><code>example.com</code> / <code>www.example.com</code> / <code>foo.bar.example.com</code></td>
+              <td><code>example.org</code></td>
+            </tr>
+            <tr>
+              <td><code>"*"</code> <small>(v1.2.0〜)</small></td>
+              <td>あらゆるドメイン</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>複数パターンの組み合わせ</h3>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">plugin.json</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-json">{
+  "domains": [
+    "qiita.com",
+    "*.qiita.com",
+    "zenn.dev",
+    "*.hatena.ne.jp"
+  ]
+}</code></pre>
+        </div>
+
+        <div class="callout callout--info">
+          <div class="callout__title">ℹ️ <code>chrome://</code> / <code>edge://</code> では動きません</div>
+          <p>Chrome 内部ページや拡張機能ストアなど、特権ページには拡張機能のスクリプト注入自体がブロックされます（Chrome仕様）。ドメイン指定に関係なく、これらのページでは WSI プラグインは動きません。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           Config
+           ========================================================== -->
+      <section id="config">
+        <h2><span class="section-icon">⚙️</span>設定 (config)<a href="#config" class="anchor">#</a></h2>
+        <p>
+          <code>plugin.json</code> の <code>config</code> フィールドは任意のJSONオブジェクトです。
+          プラグイン内から <code>WSI.getConfig()</code> で取得し、振る舞いを変えられる仕組みに使えます。
+        </p>
+
+        <h3>典型的な使い方</h3>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">plugin.json</span>
+          </div><pre><code class="language-json">{
+  "id": "highlighter",
+  "config": {
+    "color": "#fff59d",
+    "buttonPosition": "bottom-left",
+    "maxHighlightsPerPage": 100
+  }
+}</code></pre>
+        </div>
+
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">main.js</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-javascript">const config = WSI.getConfig();
+const color = config.color || '#fff59d';               // デフォルト値
+const buttonPosition = config.buttonPosition || 'bottom-right';
+const maxHighlights = config.maxHighlightsPerPage ?? 50;</code></pre>
+        </div>
+
+        <div class="callout callout--tip">
+          <div class="callout__title">💡 設定可能なプラグインの書き方</div>
+          <p>ユーザーが簡単にカスタマイズできるよう、<strong>ハードコードせず config から読む</strong>習慣をつけると、自分や他人が再利用しやすくなります。色、閾値、対象セレクタなどは config に出しましょう。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           Packaging
+           ========================================================== -->
+      <section id="packaging">
+        <h2><span class="section-icon">📦</span>パッケージング<a href="#packaging" class="anchor">#</a></h2>
+        <p>プラグインは ZIP形式で WSI にインポートします。ZIP の作り方をOS別・方法別にまとめます。</p>
+
+        <h3>Windows (エクスプローラ)</h3>
+        <ol>
+          <li><code>plugin.json</code>, <code>main.js</code>, <code>style.css</code> を選択</li>
+          <li>右クリック → 「送る」→「圧縮 (zip 形式) フォルダー」</li>
+          <li>できた <code>.zip</code> ファイル名を任意のものに変更</li>
+        </ol>
+
+        <h3>macOS / Linux (コマンドライン)</h3>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">bash</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-bash">cd my-plugin
+zip ../my-plugin.zip plugin.json main.js style.css</code></pre>
+        </div>
+
+        <h3>Windows PowerShell</h3>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">PowerShell</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-bash">Compress-Archive -Path plugin.json, main.js, style.css -DestinationPath my-plugin.zip</code></pre>
+        </div>
+
+        <h3>Node.js (jszip) で自動化</h3>
+        <p>開発が加速してくると、スクリプトでZIPを作るのが便利です。WSI リポジトリのサンプル ZIP もこの方式で作っています。</p>
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">build-zip.js</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-javascript">const fs = require('fs');
+const JSZip = require('jszip');
+
+const zip = new JSZip();
+['plugin.json', 'main.js', 'style.css'].forEach((f) =&gt; {
+  zip.file(f, fs.readFileSync(f));
+});
+
+zip.generateAsync({ type: 'nodebuffer' }).then((buf) =&gt; {
+  fs.writeFileSync('my-plugin.zip', buf);
+  console.log('ZIP built:', buf.length, 'bytes');
+});</code></pre>
+        </div>
+
+        <h3>バージョニングのルール</h3>
+        <p>ZIPを再作成するたびに <code>plugin.json</code> の <code>version</code> をインクリメントしましょう。</p>
+        <table class="doc-table">
+          <thead><tr><th>変更タイプ</th><th>例</th></tr></thead>
+          <tbody>
+            <tr><td>パッチ修正（バグ修正）</td><td><code>1.0.0</code> → <code>1.0.1</code></td></tr>
+            <tr><td>機能追加（後方互換あり）</td><td><code>1.0.5</code> → <code>1.1.0</code></td></tr>
+            <tr><td>破壊的変更</td><td><code>1.3.0</code> → <code>2.0.0</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout--tip">
+          <div class="callout__title">💡 同一IDは上書きインポート</div>
+          <p><code>id</code> が同じプラグインをインポートすると、WSI は上書き確認を出します。設定値・ストレージはそのまま残り、コードだけが新しくなります。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           Sample gallery
+           ========================================================== -->
+      <section id="samples">
+        <h2><span class="section-icon">🎨</span>サンプルギャラリー<a href="#samples" class="anchor">#</a></h2>
+        <p>
+          公式サンプル 6 個は、それぞれ異なる WSI SDK 機能を学べるよう設計されています。
+          ZIPをインポートすればすぐ動きます。ソースコードは各カードから GitHub で読めます。
+        </p>
+
+        <div class="sample-grid">
+          <a href="samples/example.com/hello-world/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">👋</div>
+              <div>
+                <div class="sample-card__name">Hello World</div>
+                <div class="sample-card__target">example.com</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">指定ドメインで 👋 ボタンを表示する入門サンプル。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> addButton / getConfig / log</div>
+          </a>
+
+          <a href="samples/universal/url-expander/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">🔗</div>
+              <div>
+                <div class="sample-card__name">URL Expander</div>
+                <div class="sample-card__target">全サイト (*)</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">短縮URLにホバー → リダイレクト先をツールチップ表示。フィッシング対策に。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> fetch (HEAD + follow)</div>
+          </a>
+
+          <a href="samples/universal/markdown-copy/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">📋</div>
+              <div>
+                <div class="sample-card__name">Markdown Copy</div>
+                <div class="sample-card__target">全サイト (*)</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">選択テキストをMarkdown形式（リンクは <code>[text](url)</code>）でクリップボードにコピー。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> addButton + Selection/Clipboard API</div>
+          </a>
+
+          <a href="samples/universal/highlighter/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">🖍️</div>
+              <div>
+                <div class="sample-card__name">Highlighter</div>
+                <div class="sample-card__target">全サイト (*)</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">ハイライトをURL単位で永続化。再訪時に自動復元。Alt+クリックで削除。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> storage 4API + onPageLoad</div>
+          </a>
+
+          <a href="samples/universal/outline-panel/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">📑</div>
+              <div>
+                <div class="sample-card__name">Outline Panel</div>
+                <div class="sample-card__target">全サイト (*)</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">ページの h1〜h6 見出しからTOCサイドパネルを生成。アクティブ見出しを追従ハイライト。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> addPanel + onPageLoad</div>
+          </a>
+
+          <a href="samples/universal/jisho-popup/" class="sample-card" target="_blank" rel="noopener">
+            <div class="sample-card__header">
+              <div class="sample-card__emoji">辞</div>
+              <div>
+                <div class="sample-card__name">Jisho Popup</div>
+                <div class="sample-card__target">全サイト (*)</div>
+              </div>
+            </div>
+            <p class="sample-card__desc">日本語を選択 → Jisho.org API で和英辞書検索 → パネル表示。外部JSON API連携の教材。</p>
+            <div class="sample-card__sdk"><strong>SDK:</strong> fetch (GET+body) + addPanel</div>
+          </a>
+        </div>
+
+        <p style="text-align: center; margin-top: 2rem;">
+          <a href="https://github.com/USERNAME/REPO/tree/main/samples" target="_blank" rel="noopener" class="btn btn--secondary">📂 GitHub で samples/ ディレクトリを開く</a>
+        </p>
+      </section>
+
+      <!-- ==========================================================
+           Debugging
+           ========================================================== -->
+      <section id="debugging">
+        <h2><span class="section-icon">🔍</span>デバッグ<a href="#debugging" class="anchor">#</a></h2>
+
+        <h3>プラグインコードのログを見る</h3>
+        <p>
+          対象ページで <kbd>F12</kbd> で DevTools を開き「Console」タブ。
+          <code>WSI.log()</code> の出力は <code>[WSI:your-plugin-id]</code> プレフィックス付きで表示されます。
+        </p>
+
+        <h3>ストレージの中身を確認する</h3>
+        <ol>
+          <li><code>chrome://extensions</code> を開く</li>
+          <li>WSI の詳細 → 「Service Worker」リンクをクリック → DevTools が開く</li>
+          <li>Console で以下を実行:</li>
+        </ol>
+
+        <div class="code-block">
+          <div class="code-block__header">
+            <span class="code-block__filename">Service Worker Console</span>
+            <button class="code-block__copy">Copy</button>
+          </div><pre><code class="language-javascript">// 全ストレージを表示
+chrome.storage.local.get(null, console.log);
+
+// 特定プラグインのデータ
+chrome.storage.local.get('pluginData_my-plugin', console.log);
+
+// ボタン位置キャッシュ
+chrome.storage.local.get('wsiButtonPositions', console.log);</code></pre>
+        </div>
+
+        <h3>よくあるエラー</h3>
+        <table class="doc-table">
+          <thead><tr><th>症状</th><th>原因・対処</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>インポート時「plugin.json が見つかりません」</td>
+              <td>ZIP内部がフォルダ階層になっている。ファイルを選択して圧縮し直す</td>
+            </tr>
+            <tr>
+              <td>ボタンが表示されない</td>
+              <td>(1) プラグインが有効か確認 (2) ドメインパターンが合っているか (3) DevTools Consoleでエラー確認</td>
+            </tr>
+            <tr>
+              <td>コード変更が反映されない</td>
+              <td>プラグインを一度削除してから ZIP を作り直して再インポート。<code>version</code> バンプも忘れずに</td>
+            </tr>
+            <tr>
+              <td><code>WSI is not defined</code></td>
+              <td>注入タイミングが早すぎる可能性。<code>scripts.runAt</code> を <code>document_idle</code> に</td>
+            </tr>
+            <tr>
+              <td><code>WSI.fetch</code> がエラー</td>
+              <td>戻り値の <code>error</code> フィールドにメッセージあり。CORSではなくネットワーク自体のエラーの可能性</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ==========================================================
+           Best practices
+           ========================================================== -->
+      <section id="best-practices">
+        <h2><span class="section-icon">✨</span>ベストプラクティス<a href="#best-practices" class="anchor">#</a></h2>
+
+        <h3>DO</h3>
+        <ul>
+          <li><strong>1プラグイン = 1機能</strong> に絞る（テストしやすく、再利用しやすい）</li>
+          <li><strong>設定値は <code>config</code> へ</strong>（色、閾値、セレクタなどはハードコードしない）</li>
+          <li><strong>エラーは try-catch で握りつぶさない</strong>（WSI.logで見えるようにする）</li>
+          <li><strong>CSSクラスにプラグインID等のプレフィックス</strong>をつける（<code>.wsi-xxxxx-</code>）。ページ側のCSSと衝突しないよう</li>
+          <li><strong>innerHTML に入れる前にエスケープ</strong>（XSSを防ぐ）</li>
+          <li><strong>storage キーに <code>location.pathname</code> を含める</strong>（URL別の状態管理）</li>
+          <li><strong>ZIP再作成時に <code>version</code> をバンプ</strong>（何が変わったか追跡できる）</li>
+        </ul>
+
+        <h3>DON'T</h3>
+        <ul>
+          <li><strong><code>chrome.*</code> API を直接呼ぼうとしない</strong>（メインワールドからは使えない）</li>
+          <li><strong>ページのグローバル変数を書き換えない</strong>（<code>window.$</code> 等との衝突要因）</li>
+          <li><strong>永続化なしの重いDOM計算を <code>onPageLoad</code> で毎回</strong>（キャッシュする）</li>
+          <li><strong>外部ライブラリをCDNから動的 <code>&lt;script&gt;</code> 読み込み</strong>（Manifest V3 のリモートコード禁止ルールに抵触する可能性。ZIPに同梱すべき）</li>
+          <li><strong>signalhigh-frequencyなイベント（scroll/mousemove）にデバウンスなしリスナ</strong>（パフォーマンス劣化）</li>
+        </ul>
+
+        <div class="callout callout--tip">
+          <div class="callout__title">💡 Tip: main.js は短いほうが良い</div>
+          <p>公式サンプルの <code>main.js</code> はいずれも <strong>200行以下</strong>に収めています。何をするプラグインか一目でわかる粒度が理想です。</p>
+        </div>
+      </section>
+
+      <!-- ==========================================================
+           FAQ
+           ========================================================== -->
+      <section id="faq" class="faq">
+        <h2><span class="section-icon">❓</span>FAQ<a href="#faq" class="anchor">#</a></h2>
+
+        <details>
+          <summary>プラグインは同時に何個まで入れられますか?</summary>
+          <p>明確な上限はありません。<code>chrome.storage.local</code> の容量上限（約10MB）まで。実用上は数十個まで問題なく動きます。</p>
+        </details>
+
+        <details>
+          <summary>他のユーザーが作ったプラグインを使うのは安全ですか?</summary>
+          <p>WSI プラグインは JavaScript がフル実行されるため、<strong>ソースコードを読めない相手から配られた ZIP は絶対に入れないでください</strong>。Chrome拡張機能本体と同じレベルのリスクがあります。公式サンプルや自分で書いたものだけ使うのが安全です。</p>
+        </details>
+
+        <details>
+          <summary>プラグイン同士はデータを共有できますか?</summary>
+          <p>デフォルトでは別名前空間で完全分離されています（<code>pluginData_&lt;pluginId&gt;</code> キーで分離）。どうしても共有したい場合は、メインワールド上で独自の <code>window.myShared = ...</code> 的な仕組みを使うことは可能です（非推奨）。</p>
+        </details>
+
+        <details>
+          <summary>React/Vue で書かれたページにも機能追加できますか?</summary>
+          <p>はい、問題なく動きます。ただし SPA では <code>onPageLoad</code> で URL 変更を検知する必要があります。React の state や props に直接触ることもできますが、<strong>内部実装に依存するので脆い</strong>です。可能ならDOM経由でアクセスしましょう。</p>
+        </details>
+
+        <details>
+          <summary>プラグインで外部ライブラリ (lodash, axios 等) を使いたい</summary>
+          <p>CDNから動的ロードはManifest V3 のルール違反になる可能性があります。<strong>ライブラリのJSファイルをプラグインZIPに同梱</strong>し、<code>plugin.json</code> の <code>scripts.main</code> より前に別の<code>script</code>として読む… という仕組みは WSI に無いため、<strong>必要な関数をインライン実装するか、ZIP内の別ファイルを <code>import()</code> する</strong>のが現実解です。</p>
+        </details>
+
+        <details>
+          <summary>ボタンの位置をリセットしたい</summary>
+          <p>Service Worker Console で以下を実行:</p>
+          <div class="code-block">
+            <div class="code-block__header"><span class="code-block__filename">console</span></div><pre><code class="language-javascript">chrome.storage.local.remove('wsiButtonPositions');</code></pre>
+          </div>
+          <p>または該当プラグインを削除 → 再インポートでもリセットされます。</p>
+        </details>
+
+        <details>
+          <summary>サンプルと同じディレクトリ構造で作るべきですか?</summary>
+          <p>いいえ、必須ではありません。ZIPの内部構造がフラット（plugin.json がルート）であれば、開発時のフォルダ配置は自由です。</p>
+        </details>
+
+        <details>
+          <summary>プラグインをChrome Web Storeで配布できますか?</summary>
+          <p>いいえ、WSIプラグインは WSI 本体に取り込まれる形で動作します。配布したい場合は、ZIPファイルを自分のサイト/GitHub等でホストし、「WSIをインストールした上でこのZIPをインポートしてください」と案内する形になります。</p>
+        </details>
+
+        <details>
+          <summary>どのSDKを使うべきか迷ったら?</summary>
+          <p>以下が目安です:</p>
+          <ul>
+            <li><strong>単発のアクション</strong> → <code>addButton</code>（例: 1クリックでコピー/通知/検索）</li>
+            <li><strong>情報を表示するUI</strong> → <code>addPanel</code>（目次、検索結果、詳細）</li>
+            <li><strong>状態を永続化</strong> → <code>storage</code>（設定、履歴、マーキング）</li>
+            <li><strong>外部サイトへリクエスト</strong> → <code>fetch</code>（API連携、URL検証）</li>
+            <li><strong>SPAに対応</strong> → <code>onPageLoad</code>（URL変更時に再処理）</li>
+          </ul>
+        </details>
+
+        <details>
+          <summary>既存のプラグインをベースに作りたい</summary>
+          <p>サンプルZIPを展開して、<code>plugin.json</code>の<code>id</code>と<code>name</code>を変更、<code>main.js</code>を書き換え、ZIP化すればオリジナルプラグインになります。<a href="#samples">サンプルギャラリー</a>の気に入ったものから始めるのがおすすめ。</p>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <!-- =====================================================
+       Footer
+       ===================================================== -->
+  <footer class="footer">
+    <p>
+      Made with 🔧 for
+      <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener"><strong>Web System Injection</strong></a>
+    </p>
+    <div class="footer__links">
+      <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </footer>
+
+  <!-- =====================================================
+       Scripts
+       ===================================================== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script>
+    // ---------------------------------------------------------
+    // Theme toggle
+    // ---------------------------------------------------------
+    const themeToggle = document.getElementById('themeToggle');
+    const stored = localStorage.getItem('wsi-guide-theme');
+    if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem(
+        'wsi-guide-theme',
+        document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+      );
+    });
+
+    // ---------------------------------------------------------
+    // Copy buttons on code blocks
+    // ---------------------------------------------------------
+    document.querySelectorAll('.code-block__copy').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const block = btn.closest('.code-block');
+        const code = block?.querySelector('code');
+        if (!code) return;
+        try {
+          await navigator.clipboard.writeText(code.textContent);
+          btn.textContent = '✓ Copied';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'Copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        } catch {
+          btn.textContent = 'Failed';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        }
+      });
+    });
+
+    // ---------------------------------------------------------
+    // TOC active highlighting (scroll-based)
+    // ---------------------------------------------------------
+    const tocLinks = Array.from(document.querySelectorAll('#tocList a'));
+    const sections = tocLinks
+      .map((link) => {
+        const id = link.getAttribute('href').slice(1);
+        return { link, section: document.getElementById(id) };
+      })
+      .filter((x) => x.section);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            tocLinks.forEach((l) => l.classList.remove('active'));
+            const active = tocLinks.find((l) => l.getAttribute('href') === `#${id}`);
+            if (active) active.classList.add('active');
+          }
+        });
+      },
+      { rootMargin: '-80px 0px -70% 0px', threshold: 0 }
+    );
+
+    sections.forEach(({ section }) => io.observe(section));
+  </script>
+</body>
+</html>

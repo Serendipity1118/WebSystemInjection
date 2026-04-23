@@ -1,0 +1,17 @@
+{
+  "id": "markdown-copy",
+  "name": "Markdown Copy",
+  "version": "1.0.0",
+  "description": "選択したテキストをMarkdown形式でクリップボードにコピーするプラグイン",
+  "author": "WSI Team",
+  "domains": ["*"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "includeCitation": true,
+    "buttonPosition": "bottom-right"
+  }
+}

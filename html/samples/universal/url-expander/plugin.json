@@ -1,0 +1,35 @@
+{
+  "id": "url-expander",
+  "name": "URL Expander",
+  "version": "1.0.0",
+  "description": "短縮URLにホバーするとリダイレクト先を表示するプラグイン",
+  "author": "WSI Team",
+  "domains": ["*"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "shorteners": [
+      "bit.ly",
+      "t.co",
+      "tinyurl.com",
+      "goo.gl",
+      "ow.ly",
+      "buff.ly",
+      "is.gd",
+      "lnkd.in",
+      "youtu.be",
+      "amzn.to",
+      "fb.me",
+      "dlvr.it",
+      "trib.al",
+      "ift.tt",
+      "rebrand.ly",
+      "cutt.ly",
+      "short.io"
+    ],
+    "hoverDelayMs": 400
+  }
+}
