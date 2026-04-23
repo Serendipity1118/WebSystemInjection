@@ -675,7 +675,7 @@
         <a href="#sdk">SDK</a>
         <a href="#samples">サンプル</a>
         <a href="#faq">FAQ</a>
-        <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/serendipity1118/WebSystemInjection-Plugins" target="_blank" rel="noopener">GitHub</a>
         <button class="topnav__theme" id="themeToggle" aria-label="テーマ切り替え" title="テーマ切り替え">🌓</button>
       </div>
     </div>
@@ -695,6 +695,7 @@
       <div class="hero__cta">
         <a href="#quick-start" class="btn btn--primary">🚀 5分で始める</a>
         <a href="#samples" class="btn btn--secondary">📦 サンプル 6個を見る</a>
+        <a href="https://chromewebstore.google.com/search/Web%20System%20Injection?hl=ja" target="_blank" rel="noopener" class="btn btn--secondary">🛒 WSI を入手</a>
       </div>
     </div>
   </header>
@@ -729,6 +730,15 @@
           最小のプラグインは <strong>2ファイル</strong>（<code>plugin.json</code> と <code>main.js</code>）だけで動きます。
           ここでは <code>example.com</code> を開くと右下に 👋 ボタンを表示する「Hello World」を作ってみましょう。
         </p>
+
+        <div class="callout callout--info">
+          <div class="callout__title">📥 事前準備: WSI 拡張機能のインストール</div>
+          <p>
+            このガイドは <strong>WSI 本体がインストール済み</strong>である前提です。未インストールの場合は、
+            <a href="https://chromewebstore.google.com/search/Web%20System%20Injection?hl=ja" target="_blank" rel="noopener"><strong>Chrome Web Store で「Web System Injection」を検索</strong></a>
+            してインストールしてください。インストール後、ブラウザのツールバーに WSI アイコンが表示されます。
+          </p>
+        </div>
 
         <h3>Step 1. フォルダを作る</h3>
         <div class="code-block">
@@ -1397,7 +1407,7 @@ zip.generateAsync({ type: 'nodebuffer' }).then((buf) =&gt; {
         </div>
 
         <p style="text-align: center; margin-top: 2rem;">
-          <a href="https://github.com/USERNAME/REPO/tree/main/samples" target="_blank" rel="noopener" class="btn btn--secondary">📂 GitHub で samples/ ディレクトリを開く</a>
+          <a href="https://github.com/serendipity1118/WebSystemInjection-Plugins/tree/main/samples" target="_blank" rel="noopener" class="btn btn--secondary">📂 GitHub で samples/ ディレクトリを開く</a>
         </p>
       </section>
 
@@ -1500,6 +1510,14 @@ chrome.storage.local.get('wsiButtonPositions', console.log);</code></pre>
       <section id="faq" class="faq">
         <h2><span class="section-icon">❓</span>FAQ<a href="#faq" class="anchor">#</a></h2>
 
+        <details open>
+          <summary>WSI 本体（Chrome拡張）はどこで入手できますか?</summary>
+          <p>
+            <a href="https://chromewebstore.google.com/search/Web%20System%20Injection?hl=ja" target="_blank" rel="noopener">Chrome Web Store で「Web System Injection」を検索</a>
+            してインストールしてください。インストール後、ブラウザツールバーの WSI アイコンからポップアップを開いて、プラグインZIPをインポートできます。
+          </p>
+        </details>
+
         <details>
           <summary>プラグインは同時に何個まで入れられますか?</summary>
           <p>明確な上限はありません。<code>chrome.storage.local</code> の容量上限（約10MB）まで。実用上は数十個まで問題なく動きます。</p>
@@ -1570,10 +1588,11 @@ chrome.storage.local.get('wsiButtonPositions', console.log);</code></pre>
   <footer class="footer">
     <p>
       Made with 🔧 for
-      <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener"><strong>Web System Injection</strong></a>
+      <a href="https://chromewebstore.google.com/search/Web%20System%20Injection?hl=ja" target="_blank" rel="noopener"><strong>Web System Injection</strong></a>
     </p>
     <div class="footer__links">
-      <a href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://chromewebstore.google.com/search/Web%20System%20Injection?hl=ja" target="_blank" rel="noopener">Chrome Web Store</a>
+      <a href="https://github.com/serendipity1118/WebSystemInjection-Plugins" target="_blank" rel="noopener">GitHub</a>
     </div>
   </footer>
 
