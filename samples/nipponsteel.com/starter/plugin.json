@@ -1,0 +1,20 @@
+{
+  "id": "nipponsteel-dijaw40-csv",
+  "name": "DijAW40 CSV Export",
+  "version": "1.0.3",
+  "description": "明細登録可能商談一覧をCSV出力するプラグイン",
+  "author": "WSI Team",
+  "domains": ["nipponsteel.com", "*.nipponsteel.com"],
+  "scripts": {
+    "main": "main.js",
+    "runAt": "document_idle"
+  },
+  "styles": ["style.css"],
+  "config": {
+    "targetPath": "/esys969/dij_web/webapp/page/DijAW40",
+    "controlId": "DijAW40100201KomokuListUserControl",
+    "gridId": "DijAW40100201KomokuListUserControlGrid",
+    "listLabel": "明細登録可能商談一覧",
+    "fileNamePrefix": "明細登録可能商談一覧"
+  }
+}
