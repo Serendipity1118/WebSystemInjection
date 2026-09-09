@@ -54,7 +54,7 @@
     btn.title = (options.text || "") + "\uFF08\u30C9\u30E9\u30C3\u30B0\u3067\u79FB\u52D5\uFF09";
     (document.body || document.documentElement).appendChild(btn);
     host.adapter.buttonPos.get(buttonIndex).then((saved) => {
-      if (!saved) return;
+      if (!saved || typeof saved !== "object" || typeof saved.left !== "string" || typeof saved.top !== "string") return;
       const { left, top } = clampToViewport(
         btn,
         parseInt(saved.left, 10) || 0,
@@ -312,8 +312,20 @@
       navigate: (tabId, url) => unwrap("tabs.navigate", { tabId, url }),
       run: (tabId, code) => unwrap("tabs.run", { tabId, code: String(code) }),
       close: (tabId) => unwrap("tabs.close", { tabId }),
-      onLoad: (cb) => events.on("tabs.load", (p) => cb(p.tabId, p.url)),
-      onDialog: (cb) => events.on("tabs.dialog", cb, { reply: true })
+      list: () => unwrap("tabs.list", {}),
+      onLoad: (cb) => events.on("tabs.load", (p) => cb(p.tabId, p.url, p.error)),
+      onClose: (cb) => events.on("tabs.close", (p) => cb(p.tabId)),
+      /**
+       * Dialogs of tabs this worker opened. Android runs every WebView in one
+       * renderer, so a blocking alert() in a tab also freezes this worker: the
+       * host cannot wait for [cb] there and answers with `options.default`
+       * ('accept' | 'dismiss' | 'show', default 'accept') right away, then
+       * delivers the event to [cb] afterwards. iOS asks [cb] first.
+       */
+      onDialog: (cb, options) => {
+        call("tabs.dialogPolicy", { action: options && options.default || "accept" });
+        return events.on("tabs.dialog", cb, { reply: true });
+      }
     };
     WSI.credentials = {
       set: (profile, value) => unwrap("credentials.set", { profile, value }),
