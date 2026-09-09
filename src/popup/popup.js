@@ -162,6 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
         code,
         css,
         config: pluginDef.config || {},
+        // プラグイン形式 v2 (WSI Browser 共通)。v1 では未定義のまま保存し、SDK 側が storage + fetch とみなす
+        formatVersion: pluginDef.formatVersion || 1,
+        permissions: Array.isArray(pluginDef.permissions) ? pluginDef.permissions : undefined,
         installedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

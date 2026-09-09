@@ -133,7 +133,7 @@ test.describe('Content Script 注入', () => {
     expect(borderTop).toBe('rgb(255, 0, 0)');
   });
 
-  test('"*" ワイルドカードドメインで任意のサイトでプラグインが実行される', async ({ context }) => {
+  test('"*" ワイルドカードドメインで任意のサイトでプラグインが実行される', async ({ context, extensionId }) => {
     const serviceWorker = context.serviceWorkers()[0];
     await serviceWorker.evaluate(() => {
       return chrome.storage.local.set({

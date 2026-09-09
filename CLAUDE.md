@@ -33,7 +33,7 @@ There is no lint or build command. Loading the extension manually: `chrome://ext
 
 Three runtime layers communicate via `chrome.runtime.sendMessage` and `window.postMessage`:
 
-1. **Service worker** — [src/background.js](src/background.js). Watches `tabs.onUpdated`, reads `plugins` + `wsiEnabled` from `chrome.storage.local`, filters by domain match, then calls `chrome.scripting.insertCSS` and `chrome.scripting.executeScript` with `world: 'MAIN'`. The injected function (`executePluginCode`) defines the `WSI` SDK **inside the page's main world** and wraps the plugin code in `new Function('WSI', code)` — this is why the SDK is not a separate file despite what older docs say.
+1. **Service worker** — [src/background.js](src/background.js). Watches `tabs.onUpdated`, reads `plugins` + `wsiEnabled` from `chrome.storage.local`, filters by domain match, then calls `chrome.scripting.insertCSS`, injects the SDK bundle [src/sdk/wsi-sdk.js](src/sdk/wsi-sdk.js) into the page's **MAIN world** (`executeScript` with `files`), and finally evaluates `globalThis.__wsiRun({ pluginId, config, code, permissions })` there. `__wsiRun` builds the `WSI` object and wraps the plugin code in `new Function('WSI', code)`; a plugin that already ran in the current document is skipped (`reason: 'already-ran'`).
 2. **Content script** — [src/content-loader.js](src/content-loader.js). Does **not** inject plugin code. It only bridges `window.postMessage` ↔ `chrome.storage.local` / `chrome.runtime.sendMessage` so that main-world plugin code can reach extension APIs (storage, fetch).
 3. **Popup UI** — [src/popup/](src/popup/). Handles ZIP import (via bundled [src/lib/jszip.min.js](src/lib/jszip.min.js)), plugin list, per-plugin enable/disable, and the global on/off toggle. All state is persisted in `chrome.storage.local`.
 
@@ -49,12 +49,14 @@ A plugin ZIP contains `plugin.json` + `main.js` (+ optional CSS listed in `style
 
 ### SDK surface (main-world only)
 
-Exposed to plugin code via the `WSI` argument. Source of truth is `executePluginCode` in [src/background.js](src/background.js):
+Exposed to plugin code via the `WSI` argument. **The SDK is generated code.** Its source of truth is `packages/wsi_sdk` in the [WSIBrowser](https://github.com/Serendipity1118/WSIBrowser) repository (shared with the Flutter app WSI Browser). Do not edit [src/sdk/wsi-sdk.js](src/sdk/wsi-sdk.js) by hand; change `packages/wsi_sdk/src/core` there, then run `npm run build:sdk && npm run sync:wsi -w packages/wsi_sdk` (copies `dist/wsi-sdk-chrome.js` here) and bump `src/manifest.json`. The Chrome-specific part is `packages/wsi_sdk/src/adapters/chrome.js`, which keeps the `window.postMessage` protocol below so [src/content-loader.js](src/content-loader.js) is unchanged.
 
-- `WSI.addButton({ text, icon, position, onClick })` — positions: `bottom-right` / `bottom-left` / `top-right` / `top-left`. Buttons are draggable by the user; drag positions are persisted in `chrome.storage.local` under `wsiButtonPositions` (keyed as `<pluginId>_<buttonIndex>`). `position` acts as the default before any drag.
+- `WSI.addButton({ text, icon, position, onClick })` — positions: `bottom-right` / `bottom-left` / `top-right` / `top-left`. Buttons are draggable by the user (Pointer Events, 44px minimum tap target, safe-area aware offsets); drag positions are persisted in `chrome.storage.local` under `wsiButtonPositions` (keyed as `<pluginId>_<buttonIndex>`). `position` acts as the default before any drag.
+- `WSI.addPanel(...)` renders as a full-width bottom sheet when the viewport is narrower than 600px; otherwise a side panel as before. `panel.children[0]` is the header and `panel.children[1]` the body.
 - `WSI.addPanel({ title, width, position: 'right'|'left', content, onOpen, onClose })`.
 - `WSI.storage.get/set/remove/getAll` — async; round-trips through postMessage → content script → `chrome.storage.local`.
-- `WSI.fetch(url, options)` — HEAD-by-default fetch proxied through the service worker to bypass page CSP/CORS. Options: `method`, `redirect`, `headers`, `body`. Returns `{ ok, status, url, redirected, body }` (body is empty for HEAD, `res.text()` for other methods) or `{ error, ok:false, status:0 }`.
+- `WSI.fetch(url, options)` — HEAD-by-default fetch proxied through the service worker to bypass page CSP/CORS. Options: `method`, `redirect`, `headers`, `body`, plus (v2) `credentials: 'site' | 'omit'` (default omit), `responseType: 'text' | 'json' | 'arraybuffer'` (arraybuffer arrives base64-encoded with `bodyEncoding: 'base64'`), `timeoutMs`. Returns `{ ok, status, url, redirected, body }` (body is empty for HEAD) or `{ error, ok:false, status:0 }`.
+- `WSI.permissions.has(name)` — v2. Plugins without a `permissions[]` in plugin.json (format v1) get `storage` + `fetch`. v2-only APIs (tabs, pages, menu, ...) do not exist in the extension; plugins should branch on `WSI.permissions.has(...)`.
 - `WSI.getConfig()`, `WSI.log(msg)`, `WSI.onPageLoad(cb)` — `onPageLoad` hooks SPA navigation via MutationObserver + `popstate`.
 
 ## Conventions
