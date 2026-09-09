@@ -255,6 +255,120 @@
     };
   }
 
+  // src/core/v2.js
+  function installV2(WSI, adapter, events) {
+    const call = (op, payload) => adapter.call(op, payload);
+    const unwrap = async (op, payload) => {
+      const r = await call(op, payload);
+      if (r && typeof r === "object" && "error" in r && Object.keys(r).length <= 2) {
+        throw new Error(String(r.error));
+      }
+      return r;
+    };
+    WSI.toast = (message, options) => {
+      call("toast", { message: String(message), ...options || {} });
+    };
+    WSI.dialog = (options) => unwrap("dialog", options || {});
+    WSI.ui = {
+      openPage: (name, params) => unwrap("ui.openPage", { name, params: params || {} }),
+      closePage: () => {
+        call("ui.closePage", {});
+      }
+    };
+    WSI.settings = {
+      get: (key) => unwrap("settings.get", { key }),
+      set: (key, value) => unwrap("settings.set", { key, value }),
+      getAll: () => unwrap("settings.getAll", {}),
+      onChange: (cb) => events.on("settings.change", cb)
+    };
+    WSI.policy = {
+      get: (key) => unwrap("policy.get", { key }),
+      getAll: () => unwrap("policy.getAll", {}),
+      refresh: () => unwrap("policy.refresh", {})
+    };
+    WSI.menu = {
+      register: (items) => {
+        const list = Array.isArray(items) ? items : [];
+        for (const item of list) {
+          if (item && item.id) {
+            if (typeof item.onSelect === "function") events.on(`menu.select:${item.id}`, item.onSelect);
+            if (typeof item.onChange === "function") events.on(`menu.change:${item.id}`, item.onChange);
+          }
+        }
+        return unwrap("menu.register", {
+          items: list.map((i) => ({ id: i.id, label: i.label, icon: i.icon, type: i.type, page: i.page, checked: i.checked }))
+        });
+      },
+      update: (id, patch) => unwrap("menu.update", { id, ...patch || {} })
+    };
+    WSI.runtime = {
+      sendMessage: (message) => unwrap("runtime.sendMessage", { message }),
+      onMessage: (cb) => events.on("runtime.message", cb, { reply: true }),
+      onSuspend: (cb) => events.on("runtime.suspend", cb),
+      onResume: (cb) => events.on("runtime.resume", cb)
+    };
+    WSI.tabs = {
+      open: (url, options) => unwrap("tabs.open", { url, ...options || {} }),
+      navigate: (tabId, url) => unwrap("tabs.navigate", { tabId, url }),
+      run: (tabId, code) => unwrap("tabs.run", { tabId, code: String(code) }),
+      close: (tabId) => unwrap("tabs.close", { tabId }),
+      onLoad: (cb) => events.on("tabs.load", (p) => cb(p.tabId, p.url)),
+      onDialog: (cb) => events.on("tabs.dialog", cb, { reply: true })
+    };
+    WSI.credentials = {
+      set: (profile, value) => unwrap("credentials.set", { profile, value }),
+      get: (profile) => unwrap("credentials.get", { profile }),
+      remove: (profile) => unwrap("credentials.remove", { profile })
+    };
+    WSI.device = { id: () => unwrap("device.id", {}) };
+    WSI.share = (options) => unwrap("share", options || {});
+    WSI.files = {
+      save: (name, data, options) => unwrap("files.save", { name, data, ...options || {} }),
+      pick: (options) => unwrap("files.pick", options || {})
+    };
+    WSI.clipboard = { write: (text) => unwrap("clipboard.write", { text: String(text) }) };
+    WSI.wakeLock = { acquire: () => unwrap("wakeLock.acquire", {}), release: () => unwrap("wakeLock.release", {}) };
+    WSI.pip = { enter: () => unwrap("pip.enter", {}), isSupported: () => unwrap("pip.isSupported", {}) };
+    WSI.blockResources = (options) => unwrap("blockResources", options || {});
+    WSI.navigation = {
+      intercept: (cb) => events.on("navigation.intercept", cb, { reply: true })
+    };
+  }
+  function createEventBus() {
+    const listeners = /* @__PURE__ */ new Map();
+    return {
+      on(event, cb, options) {
+        if (typeof cb !== "function") return () => {
+        };
+        const list = listeners.get(event) || [];
+        const entry = { cb, reply: !!(options && options.reply) };
+        list.push(entry);
+        listeners.set(event, list);
+        return () => {
+          const l = listeners.get(event) || [];
+          const i = l.indexOf(entry);
+          if (i >= 0) l.splice(i, 1);
+        };
+      },
+      async emit(event, payload, sender) {
+        const list = listeners.get(event) || [];
+        let reply;
+        for (const entry of list) {
+          try {
+            const r = await entry.cb(payload, sender);
+            if (entry.reply && reply === void 0 && r !== void 0) reply = r;
+          } catch (e) {
+            console.error(`[WSI] listener error (${event}):`, e);
+          }
+        }
+        return reply;
+      },
+      count(event) {
+        return (listeners.get(event) || []).length;
+      }
+    };
+  }
+
   // src/core/index.js
   var SDK_VERSION = "2.0.0";
   var V1_PERMISSIONS = Object.freeze(["storage", "fetch"]);
@@ -269,7 +383,7 @@
   function deepCopy(value) {
     return value === void 0 ? void 0 : JSON.parse(JSON.stringify(value));
   }
-  function createWSI(spec, adapter) {
+  function createWSI(spec, adapter, events = createEventBus()) {
     const pluginId = spec.pluginId;
     const config = spec.config || {};
     const context = spec.context || "page";
@@ -312,10 +426,13 @@
         list: () => Array.from(permissions)
       }
     };
+    if (adapter.v2 === true) {
+      installV2(WSI, adapter, events);
+    }
     return WSI;
   }
-  function runPlugin(spec, adapter) {
-    const WSI = createWSI(spec, adapter);
+  function runPlugin(spec, adapter, events) {
+    const WSI = createWSI(spec, adapter, events);
     try {
       const fn = new Function("WSI", spec.code);
       fn(WSI);
@@ -338,6 +455,7 @@
     if (typeof g.__wsiRun === "function") return g.__wsiRun;
     const ran = /* @__PURE__ */ new Set();
     Object.defineProperty(g, RAN_KEY, { value: ran, enumerable: false, configurable: true });
+    const buses = /* @__PURE__ */ new Map();
     const run = (spec) => {
       if (!spec || typeof spec.pluginId !== "string" || typeof spec.code !== "string") {
         return { ok: false, reason: "invalid spec" };
@@ -351,11 +469,22 @@
         context: spec.context || "page"
       });
       ran.add(spec.pluginId);
-      const result = runPlugin(spec, adapter);
-      if (!result.ok) ran.delete(spec.pluginId);
+      const events = createEventBus();
+      if (spec.token) buses.set(spec.token, events);
+      const result = runPlugin(spec, adapter, events);
+      if (!result.ok) {
+        ran.delete(spec.pluginId);
+        if (spec.token) buses.delete(spec.token);
+      }
       return result;
     };
+    const emit = (token, event, payload, sender) => {
+      const bus = buses.get(token);
+      if (!bus) return Promise.resolve(void 0);
+      return bus.emit(event, payload, sender);
+    };
     Object.defineProperty(g, "__wsiRun", { value: run, enumerable: false, configurable: true });
+    Object.defineProperty(g, "__wsiEmit", { value: emit, enumerable: false, configurable: true });
     Object.defineProperty(g, "__wsiSdkVersion", { value: SDK_VERSION, enumerable: false, configurable: true });
     return run;
   }
