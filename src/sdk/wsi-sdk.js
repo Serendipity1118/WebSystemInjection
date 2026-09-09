@@ -330,17 +330,21 @@
     WSI.credentials = {
       set: (profile, value) => unwrap("credentials.set", { profile, value }),
       get: (profile) => unwrap("credentials.get", { profile }),
-      remove: (profile) => unwrap("credentials.remove", { profile })
+      remove: (profile) => unwrap("credentials.remove", { profile }),
+      list: () => unwrap("credentials.list", {})
     };
-    WSI.device = { id: () => unwrap("device.id", {}) };
+    WSI.device = { id: () => unwrap("device.id", {}), info: () => unwrap("device.info", {}) };
     WSI.share = (options) => unwrap("share", options || {});
     WSI.files = {
       save: (name, data, options) => unwrap("files.save", { name, data, ...options || {} }),
       pick: (options) => unwrap("files.pick", options || {})
     };
-    WSI.clipboard = { write: (text) => unwrap("clipboard.write", { text: String(text) }) };
+    WSI.clipboard = {
+      write: (text) => unwrap("clipboard.write", { text: String(text) }),
+      read: () => unwrap("clipboard.read", {})
+    };
     WSI.wakeLock = { acquire: () => unwrap("wakeLock.acquire", {}), release: () => unwrap("wakeLock.release", {}) };
-    WSI.pip = { enter: () => unwrap("pip.enter", {}), isSupported: () => unwrap("pip.isSupported", {}) };
+    WSI.pip = { enter: () => unwrap("pip.enter", {}), exit: () => unwrap("pip.exit", {}), isSupported: () => unwrap("pip.isSupported", {}) };
     WSI.blockResources = (options) => unwrap("blockResources", options || {});
     WSI.navigation = {
       intercept: (cb) => events.on("navigation.intercept", cb, { reply: true })
