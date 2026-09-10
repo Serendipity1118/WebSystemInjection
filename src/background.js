@@ -41,9 +41,8 @@ async function injectPlugins(tabId, url) {
 
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     const matched = plugins.filter(
-      (p) => p.enabled && matchesDomain(hostname, p.domains)
+      (plugin) => plugin.enabled && matchesDomain(hostname, plugin.domains)
     );
-
     if (matched.length === 0) return;
 
     if (!(await isUserScriptsAvailable())) {
@@ -53,12 +52,12 @@ async function injectPlugins(tabId, url) {
 
     for (const plugin of matched) {
       try {
-        await chrome.userScripts.execute({
-          target: { tabId },
-          js: [{ code: createUserScriptCode(plugin) }],
-          world: 'MAIN',
-        });
-
+        const result = await runPluginInTab(tabId, plugin);
+        if (result && !result.ok) {
+          if (result.reason === 'already-ran') continue;
+          console.error(`[WSI] Plugin runtime error (${plugin.id}): ${result.reason}`);
+          continue;
+        }
         console.log(`[WSI] Plugin injected: ${plugin.name} (${plugin.id})`);
       } catch (err) {
         console.error(`[WSI] Plugin injection error (${plugin.id}):`, err);
@@ -79,271 +78,47 @@ async function isUserScriptsAvailable() {
   }
 }
 
-function createUserScriptCode(plugin) {
+// SDK コアは packages/wsi_sdk (WSIBrowser リポジトリ) から生成したバンドル。
+// パッケージ内SDKとユーザー提供コードを、許可された User Scripts API でMAINワールドへ渡す。
+const SDK_FILE = 'sdk/wsi-sdk.js';
+
+function createPluginInvocation(plugin) {
+  const spec = JSON.stringify({
+    pluginId: plugin.id,
+    config: plugin.config || {},
+    permissions: plugin.permissions,
+    context: 'page',
+  });
+  const pluginId = JSON.stringify(plugin.id);
+  const css = JSON.stringify(plugin.css || '');
   const runPlugin = plugin.code
     ? `function (WSI) {\n${plugin.code}\n}`
     : 'function () {}';
 
-  return `(${executePluginCode.toString()})(${JSON.stringify(plugin.id)}, ${JSON.stringify(plugin.config || {})}, ${JSON.stringify(plugin.css || '')}, ${runPlugin});`;
+  return `(() => {
+    const pluginId = ${pluginId};
+    const css = ${css};
+    if (css && !document.querySelector('style[data-wsi-plugin-id="' + pluginId + '"]')) {
+      const style = document.createElement('style');
+      style.dataset.wsiPluginId = pluginId;
+      style.textContent = css;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    return globalThis.__wsiRun(${spec}, ${runPlugin});
+  })();`;
 }
 
-function executePluginCode(pluginId, config, css, runPlugin) {
-  if (css) {
-    const style = document.createElement('style');
-    style.dataset.wsiPluginId = pluginId;
-    style.textContent = css;
-    (document.head || document.documentElement).appendChild(style);
-  }
-
-  // プラグインごとにボタンへインデックスを振って位置永続化のキーに使う
-  let _buttonCount = 0;
-
-  const WSI = {
-    _pluginId: pluginId,
-    _config: config,
-
-    addButton(options) {
-      const btn = document.createElement('button');
-      btn.textContent = options.icon
-        ? `${options.icon} ${options.text || ''}`
-        : options.text || '';
-      btn.className = 'wsi-floating-button';
-      const pos = options.position || 'bottom-right';
-      const posMap = {
-        'bottom-right': { bottom: '20px', right: '20px' },
-        'bottom-left': { bottom: '20px', left: '20px' },
-        'top-right': { top: '20px', right: '20px' },
-        'top-left': { top: '20px', left: '20px' },
-      };
-      Object.assign(btn.style, {
-        position: 'fixed',
-        zIndex: '2147483647',
-        padding: '10px 16px',
-        border: 'none',
-        borderRadius: '8px',
-        background: '#4688F1',
-        color: '#fff',
-        fontSize: '14px',
-        cursor: 'grab',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-        userSelect: 'none',
-        ...(posMap[pos] || posMap['bottom-right']),
-      });
-      btn.title = (options.text || '') + '（ドラッグで移動）';
-      document.body.appendChild(btn);
-
-      const buttonIndex = _buttonCount++;
-
-      // content-loader 経由で保存位置を取得・保存するヘルパー
-      const posRequest = (action, position) =>
-        new Promise((resolve) => {
-          const reqId = `wsi_btnpos_${Date.now()}_${Math.random()}`;
-          window.addEventListener('message', function handler(e) {
-            if (e.data && e.data.type === 'WSI_BUTTON_POS_RESULT' && e.data.id === reqId) {
-              window.removeEventListener('message', handler);
-              resolve(e.data.result);
-            }
-          });
-          window.postMessage(
-            { type: 'WSI_BUTTON_POS_REQUEST', id: reqId, action, pluginId, buttonIndex, position },
-            '*'
-          );
-        });
-
-      // 保存位置があれば復元（画面サイズ外にならないようクランプ）
-      posRequest('get').then((saved) => {
-        if (!saved) return;
-        const maxLeft = Math.max(0, window.innerWidth - btn.offsetWidth);
-        const maxTop = Math.max(0, window.innerHeight - btn.offsetHeight);
-        const left = Math.min(parseInt(saved.left, 10) || 0, maxLeft);
-        const top = Math.min(parseInt(saved.top, 10) || 0, maxTop);
-        btn.style.left = `${Math.max(0, left)}px`;
-        btn.style.top = `${Math.max(0, top)}px`;
-        btn.style.right = 'auto';
-        btn.style.bottom = 'auto';
-      });
-
-      // ドラッグ処理
-      const DRAG_THRESHOLD = 4;
-      let isDragging = false;
-      let justDragged = false;
-      let startX = 0, startY = 0, offsetX = 0, offsetY = 0;
-
-      btn.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // 左クリックのみ
-        isDragging = true;
-        justDragged = false;
-        startX = e.clientX;
-        startY = e.clientY;
-        const rect = btn.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-        btn.style.cursor = 'grabbing';
-        e.preventDefault();
-      });
-
-      document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        if (!justDragged) {
-          const dx = Math.abs(e.clientX - startX);
-          const dy = Math.abs(e.clientY - startY);
-          if (dx + dy > DRAG_THRESHOLD) justDragged = true;
-        }
-        if (justDragged) {
-          const maxLeft = Math.max(0, window.innerWidth - btn.offsetWidth);
-          const maxTop = Math.max(0, window.innerHeight - btn.offsetHeight);
-          const left = Math.max(0, Math.min(maxLeft, e.clientX - offsetX));
-          const top = Math.max(0, Math.min(maxTop, e.clientY - offsetY));
-          btn.style.left = `${left}px`;
-          btn.style.top = `${top}px`;
-          btn.style.right = 'auto';
-          btn.style.bottom = 'auto';
-        }
-      });
-
-      document.addEventListener('mouseup', () => {
-        if (!isDragging) return;
-        isDragging = false;
-        btn.style.cursor = 'grab';
-        if (justDragged) {
-          posRequest('set', { left: btn.style.left, top: btn.style.top });
-        }
-      });
-
-      // ドラッグ直後の click は抑制（誤クリック防止）
-      btn.addEventListener('click', (e) => {
-        if (justDragged) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          justDragged = false;
-          return;
-        }
-        if (options.onClick) options.onClick(e);
-      });
-
-      this.log('Button added');
-      return btn;
-    },
-
-    addPanel(options) {
-      const panel = document.createElement('div');
-      panel.className = 'wsi-panel';
-      const position = options.position || 'right';
-      Object.assign(panel.style, {
-        position: 'fixed',
-        top: '0',
-        [position]: '0',
-        width: options.width || '300px',
-        height: '100vh',
-        zIndex: '2147483646',
-        background: '#fff',
-        boxShadow: '-2px 0 8px rgba(0,0,0,0.15)',
-        display: 'flex',
-        flexDirection: 'column',
-      });
-      const header = document.createElement('div');
-      Object.assign(header.style, {
-        padding: '12px 16px',
-        borderBottom: '1px solid #e0e0e0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontWeight: 'bold',
-      });
-      header.textContent = options.title || '';
-      const closeBtn = document.createElement('button');
-      closeBtn.textContent = '\u00d7';
-      Object.assign(closeBtn.style, {
-        border: 'none',
-        background: 'none',
-        fontSize: '20px',
-        cursor: 'pointer',
-      });
-      closeBtn.addEventListener('click', () => {
-        panel.remove();
-        if (options.onClose) options.onClose();
-      });
-      header.appendChild(closeBtn);
-      const body = document.createElement('div');
-      Object.assign(body.style, { flex: '1', overflow: 'auto', padding: '16px' });
-      body.innerHTML = options.content || '';
-      panel.appendChild(header);
-      panel.appendChild(body);
-      document.body.appendChild(panel);
-      if (options.onOpen) options.onOpen();
-      this.log('Panel added');
-      return panel;
-    },
-
-    storage: {
-      _request(action, key, value) {
-        return new Promise((resolve) => {
-          const id = `wsi_${Date.now()}_${Math.random()}`;
-          window.addEventListener('message', function handler(e) {
-            if (e.data && e.data.type === 'WSI_STORAGE_RESULT' && e.data.id === id) {
-              window.removeEventListener('message', handler);
-              resolve(e.data.result);
-            }
-          });
-          window.postMessage(
-            { type: 'WSI_STORAGE_REQUEST', id, pluginId, action, key, value },
-            '*'
-          );
-        });
-      },
-      get(key) { return this._request('get', key); },
-      set(key, value) { return this._request('set', key, value); },
-      remove(key) { return this._request('remove', key); },
-      getAll() { return this._request('getAll'); },
-    },
-
-    fetch(url, options) {
-      return new Promise((resolve) => {
-        const id = `wsi_fetch_${Date.now()}_${Math.random()}`;
-        window.addEventListener('message', function handler(e) {
-          if (e.data && e.data.type === 'WSI_FETCH_RESULT' && e.data.id === id) {
-            window.removeEventListener('message', handler);
-            resolve(e.data.result);
-          }
-        });
-        window.postMessage(
-          { type: 'WSI_FETCH_REQUEST', id, url, options: options || {} },
-          '*'
-        );
-      });
-    },
-
-    getConfig() {
-      return JSON.parse(JSON.stringify(this._config));
-    },
-
-    log(message) {
-      console.log(`[WSI:${this._pluginId}] ${message}`);
-    },
-
-    onPageLoad(callback) {
-      let lastUrl = location.href;
-      const observer = new MutationObserver(() => {
-        if (location.href !== lastUrl) {
-          lastUrl = location.href;
-          callback(lastUrl);
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      window.addEventListener('popstate', () => {
-        if (location.href !== lastUrl) {
-          lastUrl = location.href;
-          callback(lastUrl);
-        }
-      });
-    },
-  };
-
-  try {
-    runPlugin(WSI);
-  } catch (e) {
-    console.error(`[WSI] Plugin runtime error (${pluginId}):`, e);
-  }
+async function runPluginInTab(tabId, plugin) {
+  const results = await chrome.userScripts.execute({
+    target: { tabId },
+    js: [
+      { file: SDK_FILE },
+      { code: createPluginInvocation(plugin) },
+    ],
+    world: 'MAIN',
+  });
+  const result = results[results.length - 1];
+  return result && result.result;
 }
 
 async function handleStorageRequest(message) {
@@ -370,25 +145,53 @@ async function handleStorageRequest(message) {
 
 async function handleFetchRequest(message) {
   const { url, options = {} } = message;
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer = null;
   try {
     const method = (options.method || 'HEAD').toUpperCase();
+    const timeoutMs = Number(options.timeoutMs);
+    if (controller && timeoutMs > 0) {
+      timer = setTimeout(() => controller.abort(), timeoutMs);
+    }
     const res = await fetch(url, {
       method,
       redirect: options.redirect || 'follow',
       headers: options.headers,
       body: options.body,
+      // v2: credentials 'site' はサイトの Cookie を送る。既定 (omit) は送らない
+      credentials: options.credentials === 'site' ? 'include' : 'omit',
+      signal: controller ? controller.signal : undefined,
     });
-    // HEAD はボディを持たないので読まない。GET/POST/PUT/PATCH/DELETE 時のみ text() で取得
-    const body = method === 'HEAD' ? '' : await res.text();
+    let body = '';
+    let bodyEncoding;
+    if (method !== 'HEAD') {
+      const type = options.responseType || 'text';
+      if (type === 'json') {
+        body = await res.json();
+      } else if (type === 'arraybuffer') {
+        const buf = new Uint8Array(await res.arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < buf.length; i += 0x8000) {
+          bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+        }
+        body = btoa(bin);
+        bodyEncoding = 'base64';
+      } else {
+        body = await res.text();
+      }
+    }
     return {
       ok: res.ok,
       status: res.status,
       url: res.url,
       redirected: res.redirected,
       body,
+      ...(bodyEncoding ? { bodyEncoding } : {}),
     };
   } catch (err) {
     return { error: err.message, ok: false, status: 0 };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -405,7 +208,7 @@ async function updateBadge(tabId, url) {
 
     const { plugins = [] } = await chrome.storage.local.get('plugins');
     const matchCount = plugins.filter(
-      (p) => p.enabled && matchesDomain(hostname, p.domains)
+      (plugin) => plugin.enabled && matchesDomain(hostname, plugin.domains)
     ).length;
 
     await chrome.action.setBadgeText({
