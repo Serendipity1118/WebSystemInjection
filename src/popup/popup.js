@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const globalStatusBar = document.getElementById('global-status-bar');
   const globalStatusIcon = document.getElementById('global-status-icon');
   const globalStatusText = document.getElementById('global-status-text');
+  const userScriptsWarning = document.getElementById('user-scripts-warning');
 
   let pendingPlugin = null;
 
@@ -51,8 +52,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initI18n();
+  checkUserScriptsAvailability();
   initGlobalToggle();
   loadPluginList();
+
+  async function checkUserScriptsAvailability() {
+    try {
+      const status = await chrome.runtime.sendMessage({ type: 'WSI_USER_SCRIPTS_STATUS' });
+      userScriptsWarning.classList.toggle('hidden', status && status.available);
+    } catch {
+      userScriptsWarning.classList.remove('hidden');
+    }
+  }
 
   async function initGlobalToggle() {
     const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');

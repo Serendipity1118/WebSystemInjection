@@ -26,6 +26,11 @@
       <span id="header-plugin-count-label">プラグイン: <strong id="header-plugin-count">0</strong> 件</span>
     </div>
 
+    <div id="user-scripts-warning" class="user-scripts-warning hidden" role="alert">
+      <strong data-i18n="userScriptsDisabledTitle">ユーザースクリプトの許可が必要です</strong>
+      <span data-i18n="userScriptsDisabledMessage">chrome://extensions でWSIの詳細を開き、「ユーザースクリプトを許可」を有効にしてください。</span>
+    </div>
+
     <main id="main-view">
       <section id="plugin-list-section">
         <div class="section-header">
@@ -65,7 +70,7 @@
     </section>
   </div>
 
-  <script src="../lib/jszip.min.js"></script>
+  <script src="../lib/jszip.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

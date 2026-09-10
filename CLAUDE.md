@@ -33,9 +33,9 @@ There is no lint or build command. Loading the extension manually: `chrome://ext
 
 Three runtime layers communicate via `chrome.runtime.sendMessage` and `window.postMessage`:
 
-1. **Service worker** — [src/background.js](src/background.js). Watches `tabs.onUpdated`, reads `plugins` + `wsiEnabled` from `chrome.storage.local`, filters by domain match, then calls `chrome.scripting.insertCSS` and `chrome.scripting.executeScript` with `world: 'MAIN'`. The injected function (`executePluginCode`) defines the `WSI` SDK **inside the page's main world** and wraps the plugin code in `new Function('WSI', code)` — this is why the SDK is not a separate file despite what older docs say.
+1. **Service worker** — [src/background.js](src/background.js). Watches `tabs.onUpdated`, reads `plugins` + `wsiEnabled` from `chrome.storage.local`, filters by domain match, then calls `chrome.userScripts.execute` with `world: 'MAIN'`. The generated user script contains the imported code, CSS, and the `WSI` SDK wrapper. Do not replace this with `eval`, `new Function`, or `chrome.scripting`; user-provided code must run through the User Scripts API for Manifest V3 policy compliance.
 2. **Content script** — [src/content-loader.js](src/content-loader.js). Does **not** inject plugin code. It only bridges `window.postMessage` ↔ `chrome.storage.local` / `chrome.runtime.sendMessage` so that main-world plugin code can reach extension APIs (storage, fetch).
-3. **Popup UI** — [src/popup/](src/popup/). Handles ZIP import (via bundled [src/lib/jszip.min.js](src/lib/jszip.min.js)), plugin list, per-plugin enable/disable, and the global on/off toggle. All state is persisted in `chrome.storage.local`.
+3. **Popup UI** — [src/popup/](src/popup/). Handles ZIP import (via bundled [src/lib/jszip.js](src/lib/jszip.js)), plugin list, per-plugin enable/disable, and the global on/off toggle. It warns when the browser's Allow User Scripts toggle is disabled. All state is persisted in `chrome.storage.local`.
 
 ### Storage shape (`chrome.storage.local`)
 
@@ -78,7 +78,8 @@ UI strings go through `chrome.i18n.getMessage` with message catalogs under [src/
 
 ## Things to watch out for
 
-- Plugin code runs in the page's **main world**, not the content-script isolated world. It shares globals with the page but cannot call `chrome.*` APIs directly — go through the `WSI` SDK instead.
+- Plugin code runs through `chrome.userScripts` in the page's **main world**, not the content-script isolated world. It shares globals with the page but cannot call `chrome.*` APIs directly — go through the `WSI` SDK instead.
+- Users must enable Allow User Scripts in WSI's extension details (Developer mode on Chrome 137 and earlier). Tests persist this per-extension setting in a temporary Chromium profile.
 - The service worker silently swallows injection errors on `chrome://`, `edge://`, etc. URLs (the `try { new URL(...) }` block in `injectPlugins`). Don't add noisy logging for those.
 - Toggling `wsiEnabled` or a plugin's `enabled` flag does **not** auto-reload open tabs — changes apply on next navigation. This matches the spec (F-01-3).
 - There is no background build; editing files in [src/](src/) requires reloading the unpacked extension in `chrome://extensions` to pick up changes.

@@ -17,6 +17,10 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'WSI_USER_SCRIPTS_STATUS') {
+    isUserScriptsAvailable().then((available) => sendResponse({ available }));
+    return true;
+  }
   if (message.type === 'WSI_STORAGE_REQUEST' && sender.tab) {
     handleStorageRequest(message).then(sendResponse);
     return true;
@@ -40,23 +44,20 @@ async function injectPlugins(tabId, url) {
       (p) => p.enabled && matchesDomain(hostname, p.domains)
     );
 
+    if (matched.length === 0) return;
+
+    if (!(await isUserScriptsAvailable())) {
+      console.warn('[WSI] User Scripts API is disabled. Enable "Allow User Scripts" in the extension details.');
+      return;
+    }
+
     for (const plugin of matched) {
       try {
-        if (plugin.css) {
-          await chrome.scripting.insertCSS({
-            target: { tabId },
-            css: plugin.css,
-          });
-        }
-
-        if (plugin.code) {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            func: executePluginCode,
-            args: [plugin.id, plugin.config || {}, plugin.code],
-            world: 'MAIN',
-          });
-        }
+        await chrome.userScripts.execute({
+          target: { tabId },
+          js: [{ code: createUserScriptCode(plugin) }],
+          world: 'MAIN',
+        });
 
         console.log(`[WSI] Plugin injected: ${plugin.name} (${plugin.id})`);
       } catch (err) {
@@ -68,7 +69,32 @@ async function injectPlugins(tabId, url) {
   }
 }
 
-function executePluginCode(pluginId, config, code) {
+async function isUserScriptsAvailable() {
+  try {
+    if (!chrome.userScripts) return false;
+    await chrome.userScripts.getScripts();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createUserScriptCode(plugin) {
+  const runPlugin = plugin.code
+    ? `function (WSI) {\n${plugin.code}\n}`
+    : 'function () {}';
+
+  return `(${executePluginCode.toString()})(${JSON.stringify(plugin.id)}, ${JSON.stringify(plugin.config || {})}, ${JSON.stringify(plugin.css || '')}, ${runPlugin});`;
+}
+
+function executePluginCode(pluginId, config, css, runPlugin) {
+  if (css) {
+    const style = document.createElement('style');
+    style.dataset.wsiPluginId = pluginId;
+    style.textContent = css;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
   // プラグインごとにボタンへインデックスを振って位置永続化のキーに使う
   let _buttonCount = 0;
 
@@ -314,8 +340,7 @@ function executePluginCode(pluginId, config, code) {
   };
 
   try {
-    const fn = new Function('WSI', code);
-    fn(WSI);
+    runPlugin(WSI);
   } catch (e) {
     console.error(`[WSI] Plugin runtime error (${pluginId}):`, e);
   }

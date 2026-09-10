@@ -1,4 +1,10 @@
 {
+  "userScriptsDisabledTitle": {
+    "message": "ユーザースクリプトの許可が必要です"
+  },
+  "userScriptsDisabledMessage": {
+    "message": "chrome://extensions でWSIの詳細を開き、「ユーザースクリプトを許可」を有効にしてください。Chrome 137以前ではデベロッパーモードを有効にしてください。"
+  },
   "extName": {
     "message": "Web System Injection"
   },

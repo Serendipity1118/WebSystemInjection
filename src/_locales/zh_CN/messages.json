@@ -1,4 +1,10 @@
 {
+  "userScriptsDisabledTitle": {
+    "message": "需要允许用户脚本"
+  },
+  "userScriptsDisabledMessage": {
+    "message": "请在 chrome://extensions 中打开 WSI 详情并启用“允许用户脚本”。Chrome 137 及更早版本请启用开发者模式。"
+  },
   "extName": {
     "message": "Web System Injection"
   },

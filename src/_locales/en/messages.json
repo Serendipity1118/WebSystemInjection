@@ -1,4 +1,10 @@
 {
+  "userScriptsDisabledTitle": {
+    "message": "User Scripts permission is required"
+  },
+  "userScriptsDisabledMessage": {
+    "message": "Open WSI details at chrome://extensions and enable Allow User Scripts. On Chrome 137 or earlier, enable Developer mode."
+  },
   "extName": {
     "message": "Web System Injection"
   },

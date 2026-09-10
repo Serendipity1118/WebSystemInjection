@@ -78,6 +78,26 @@ body {
   font-weight: 400;
 }
 
+.user-scripts-warning {
+  margin: 10px 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #f0c36d;
+  border-radius: 6px;
+  background: #fff8e1;
+  color: #6d4c00;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.user-scripts-warning strong,
+.user-scripts-warning span {
+  display: block;
+}
+
+.user-scripts-warning strong {
+  margin-bottom: 3px;
+}
+
 .main-view--disabled {
   opacity: 0.45;
   pointer-events: none;

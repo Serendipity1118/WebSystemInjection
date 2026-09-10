@@ -2,7 +2,7 @@
   'use strict';
 
   // Content Script: ストレージブリッジの設定
-  // プラグインコードの注入はbackground.js (chrome.scripting.executeScript) が担当
+  // プラグインコードの注入はbackground.js (chrome.userScripts.execute) が担当
   // ここではメインワールド ↔ content script 間のストレージ通信を仲介する
   window.addEventListener('message', async (e) => {
     if (!e.data) return;
