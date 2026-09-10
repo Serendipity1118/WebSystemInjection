@@ -1,7 +1,8 @@
 {
+  "formatVersion": 2,
   "id": "outline-panel",
   "name": "Outline Panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ページの見出しから目次を生成してサイドパネルに表示するプラグイン",
   "author": "WSI Team",
   "domains": ["*"],
@@ -10,6 +11,7 @@
     "runAt": "document_idle"
   },
   "styles": ["style.css"],
+  "permissions": ["storage"],
   "config": {
     "buttonPosition": "top-left",
     "panelPosition": "right",

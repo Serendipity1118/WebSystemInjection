@@ -1,7 +1,8 @@
 {
+  "formatVersion": 2,
   "id": "hello-world",
   "name": "Hello World",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "動作確認用のサンプルプラグイン",
   "author": "WSI Team",
   "domains": ["example.com"],
@@ -10,6 +11,7 @@
     "runAt": "document_idle"
   },
   "styles": ["style.css"],
+  "permissions": ["storage"],
   "config": {
     "message": "Hello from WSI!"
   }

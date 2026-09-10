@@ -1,7 +1,8 @@
 {
+  "formatVersion": 2,
   "id": "jisho-popup",
   "name": "Jisho Popup",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "日本語テキストを選択すると Jisho.org API で辞書検索するプラグイン",
   "author": "WSI Team",
   "domains": ["*"],
@@ -10,6 +11,7 @@
     "runAt": "document_idle"
   },
   "styles": ["style.css"],
+  "permissions": ["storage", "fetch"],
   "config": {
     "buttonPosition": "bottom-left",
     "panelPosition": "right",

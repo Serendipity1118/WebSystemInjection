@@ -65,14 +65,18 @@ my-plugin/
 
 ```json
 {
+  "formatVersion": 2,
   "id": "my-plugin",
   "name": "My Plugin",
   "version": "1.0.0",
   "description": "説明文",
   "domains": ["example.com", "*.example.com"],
-  "scripts": { "main": "main.js" }
+  "scripts": { "main": "main.js" },
+  "permissions": ["storage"]
 }
 ```
+
+`WSI.fetch` を使う場合は、`permissions` に `"fetch"` も追加します。形式v1（`formatVersion` 未指定）も読み込めますが、新規・更新プラグインには形式v2を使用してください。
 
 `domains` には対象サイトを配列で指定:
 
