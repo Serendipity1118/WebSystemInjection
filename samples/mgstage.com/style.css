@@ -1,0 +1,47 @@
+.wsi-missav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: #1a1a2e;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.wsi-missav-link:hover {
+  background: #16213e;
+  transform: scale(1.03);
+}
+
+.wsi-missav-link--disabled {
+  background: #999;
+  color: #ccc;
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.wsi-missav-link--disabled:hover {
+  background: #999;
+  transform: none;
+}
+
+.wsi-missav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #e94560;
+  color: #fff;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.wsi-missav-icon--disabled {
+  background: #aaa;
+}
