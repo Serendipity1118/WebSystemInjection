@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === 'WSI_FETCH_REQUEST' && sender.tab) {
-    handleFetchRequest(message).then(sendResponse);
+    handleFetchRequest(message, sender).then(sendResponse);
     return true;
   }
 });
@@ -143,7 +143,68 @@ async function handleStorageRequest(message) {
   }
 }
 
-async function handleFetchRequest(message) {
+function resolveFetchReferrer(options, sender) {
+  if (typeof options.referrer === 'string' && options.referrer) return options.referrer;
+  const headers = options.headers || {};
+  const fromHeader = headers.Referer || headers.referer;
+  if (typeof fromHeader === 'string' && fromHeader) return fromHeader;
+  if (sender?.tab?.url && /^https?:\/\//.test(sender.tab.url)) return sender.tab.url;
+  return undefined;
+}
+
+function sanitizeFetchHeaders(headers) {
+  if (!headers || typeof headers !== 'object') return undefined;
+  const out = { ...headers };
+  delete out.Referer;
+  delete out.referer;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+const REFERER_RULE_ID = 900001;
+
+async function withRefererHeader(referrer, targetUrl, run) {
+  if (!referrer || !chrome.declarativeNetRequest?.updateDynamicRules) {
+    return run();
+  }
+  let host = '';
+  try {
+    host = new URL(targetUrl).hostname;
+  } catch {
+    return run();
+  }
+  const urlFilter = `||${host}^`;
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [REFERER_RULE_ID],
+      addRules: [{
+        id: REFERER_RULE_ID,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            { header: 'Referer', operation: 'set', value: referrer },
+          ],
+        },
+        condition: {
+          urlFilter,
+          initiatorDomains: [chrome.runtime.id],
+          resourceTypes: ['xmlhttprequest', 'other'],
+        },
+      }],
+    });
+    return await run();
+  } finally {
+    try {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [REFERER_RULE_ID],
+      });
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+}
+
+async function handleFetchRequest(message, sender) {
   const { url, options = {} } = message;
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   let timer = null;
@@ -153,15 +214,21 @@ async function handleFetchRequest(message) {
     if (controller && timeoutMs > 0) {
       timer = setTimeout(() => controller.abort(), timeoutMs);
     }
-    const res = await fetch(url, {
+    const referrer = resolveFetchReferrer(options, sender);
+    const fetchInit = {
       method,
       redirect: options.redirect || 'follow',
-      headers: options.headers,
+      headers: sanitizeFetchHeaders(options.headers),
       body: options.body,
       // v2: credentials 'site' はサイトの Cookie を送る。既定 (omit) は送らない
       credentials: options.credentials === 'site' ? 'include' : 'omit',
       signal: controller ? controller.signal : undefined,
-    });
+    };
+    if (referrer) {
+      fetchInit.referrer = referrer;
+      fetchInit.referrerPolicy = options.referrerPolicy || 'unsafe-url';
+    }
+    const res = await withRefererHeader(referrer, url, () => fetch(url, fetchInit));
     let body = '';
     let bodyEncoding;
     if (method !== 'HEAD') {
