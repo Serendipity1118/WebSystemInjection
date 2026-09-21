@@ -168,6 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
         description: pluginDef.description || '',
         author: pluginDef.author || '',
         domains: pluginDef.domains,
+        // iframe 注入先。全フレームへの注入を避けるため "*" は受け付けない
+        frameDomains: Array.isArray(pluginDef.frameDomains)
+          ? pluginDef.frameDomains.filter((d) => typeof d === 'string' && d && d !== '*')
+          : undefined,
         runAt: pluginDef.scripts.runAt || 'document_idle',
         enabled: true,
         code,

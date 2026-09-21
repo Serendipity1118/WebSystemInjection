@@ -29,20 +29,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleFetchRequest(message, sender).then(sendResponse);
     return true;
   }
+  // iframe の content script から: frameDomains に一致するか確認 → 一致ならそのフレームへ注入
+  if (message.type === 'WSI_FRAME_CHECK' && sender.tab && sender.frameId) {
+    findPluginsForUrl(sender.url, { frame: true })
+      .then((matched) => sendResponse({ matched: matched.length > 0 }))
+      .catch(() => sendResponse({ matched: false }));
+    return true;
+  }
+  if (message.type === 'WSI_FRAME_INJECT' && sender.tab && sender.frameId) {
+    injectPlugins(sender.tab.id, sender.url, { frameId: sender.frameId })
+      .then(() => sendResponse({ ok: true }));
+    return true;
+  }
 });
 
-async function injectPlugins(tabId, url) {
+// トップフレームは domains、iframe は frameDomains（明示したドメインのみ）で照合する
+async function findPluginsForUrl(url, { frame = false } = {}) {
+  let hostname = '';
   try {
-    const hostname = new URL(url).hostname;
-    if (!hostname) return;
+    hostname = new URL(url).hostname;
+  } catch {
+    return [];
+  }
+  if (!hostname) return [];
 
-    const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');
-    if (!wsiEnabled) return;
+  const { wsiEnabled = true } = await chrome.storage.local.get('wsiEnabled');
+  if (!wsiEnabled) return [];
 
-    const { plugins = [] } = await chrome.storage.local.get('plugins');
-    const matched = plugins.filter(
-      (plugin) => plugin.enabled && matchesDomain(hostname, plugin.domains)
-    );
+  const { plugins = [] } = await chrome.storage.local.get('plugins');
+  return plugins.filter((plugin) => {
+    if (!plugin.enabled) return false;
+    const domains = frame ? plugin.frameDomains : plugin.domains;
+    return Array.isArray(domains) && matchesDomain(hostname, domains);
+  });
+}
+
+async function injectPlugins(tabId, url, { frameId = 0 } = {}) {
+  try {
+    const matched = await findPluginsForUrl(url, { frame: frameId !== 0 });
     if (matched.length === 0) return;
 
     if (!(await isUserScriptsAvailable())) {
@@ -52,7 +76,7 @@ async function injectPlugins(tabId, url) {
 
     for (const plugin of matched) {
       try {
-        const result = await runPluginInTab(tabId, plugin);
+        const result = await runPluginInTab(tabId, plugin, frameId);
         if (result && !result.ok) {
           if (result.reason === 'already-ran') continue;
           console.error(`[WSI] Plugin runtime error (${plugin.id}): ${result.reason}`);
@@ -106,9 +130,9 @@ function createPluginInvocation(plugin) {
   })();`;
 }
 
-async function runPluginInTab(tabId, plugin) {
+async function runPluginInTab(tabId, plugin, frameId = 0) {
   const results = await chrome.userScripts.execute({
-    target: { tabId },
+    target: { tabId, frameIds: [frameId] },
     js: [
       { file: SDK_FILE },
       { code: createPluginInvocation(plugin) },
@@ -146,6 +170,8 @@ function resolveFetchReferrer(options, sender) {
   const headers = options.headers || {};
   const fromHeader = headers.Referer || headers.referer;
   if (typeof fromHeader === 'string' && fromHeader) return fromHeader;
+  // iframe からの要求は、そのフレームの URL を既定の Referer にする
+  if (sender?.frameId && sender.url && /^https?:\/\//.test(sender.url)) return sender.url;
   if (sender?.tab?.url && /^https?:\/\//.test(sender.tab.url)) return sender.tab.url;
   return undefined;
 }
@@ -318,6 +344,8 @@ async function handleFetchRequest(message, sender) {
       status: res.status,
       url: res.url,
       redirected: res.redirected,
+      // Content-Length / Content-Range 等を読めるよう応答ヘッダーも返す（キーは小文字）
+      headers: Object.fromEntries(res.headers.entries()),
       body,
       ...(bodyEncoding ? { bodyEncoding } : {}),
     };
