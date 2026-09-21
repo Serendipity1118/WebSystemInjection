@@ -130,13 +130,32 @@
   function isNarrow() {
     return window.innerWidth < BOTTOM_SHEET_MAX_WIDTH;
   }
+  function avoidSiteHeaderOverlap(panel, closeBtn) {
+    if (isNarrow()) return;
+    const r = closeBtn.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (!hit || hit === closeBtn || closeBtn.contains(hit)) return;
+    let el = hit;
+    while (el && el !== document.documentElement) {
+      const st = getComputedStyle(el);
+      if (st.position === "fixed" || st.position === "sticky") {
+        const bottom = Math.ceil(el.getBoundingClientRect().bottom);
+        if (bottom > 0) {
+          panel.style.top = `${bottom}px`;
+          panel.style.height = `calc(100vh - ${bottom}px)`;
+          return;
+        }
+      }
+      el = el.parentElement;
+    }
+  }
   function createPanel(host, options = {}) {
     const panel = document.createElement("div");
     panel.className = "wsi-panel";
     const position = options.position === "left" ? "left" : "right";
     const base = {
       position: "fixed",
-      zIndex: "2147483646",
+      zIndex: "2147483647",
       background: "#fff",
       display: "flex",
       flexDirection: "column",
@@ -186,7 +205,8 @@
       fontWeight: "bold",
       flexShrink: "0"
     });
-    header.textContent = options.title || "";
+    const titleEl = document.createElement("span");
+    titleEl.textContent = options.title || "";
     const closeBtn = document.createElement("button");
     closeBtn.type = "button";
     closeBtn.textContent = "\xD7";
@@ -198,9 +218,14 @@
       minWidth: "44px",
       minHeight: "44px",
       cursor: "pointer",
-      color: "inherit"
+      color: "inherit",
+      position: "relative",
+      zIndex: "1"
     });
-    const onResize = () => applyLayout();
+    const onResize = () => {
+      applyLayout();
+      avoidSiteHeaderOverlap(panel, closeBtn);
+    };
     window.addEventListener("resize", onResize);
     const close = () => {
       window.removeEventListener("resize", onResize);
@@ -208,6 +233,7 @@
       if (typeof options.onClose === "function") options.onClose();
     };
     closeBtn.addEventListener("click", close);
+    header.appendChild(titleEl);
     header.appendChild(closeBtn);
     const body = document.createElement("div");
     Object.assign(body.style, {
@@ -220,6 +246,7 @@
     panel.appendChild(header);
     panel.appendChild(body);
     (document.body || document.documentElement).appendChild(panel);
+    requestAnimationFrame(() => avoidSiteHeaderOverlap(panel, closeBtn));
     if (typeof options.onOpen === "function") options.onOpen();
     host.log("Panel added");
     return panel;
@@ -271,6 +298,7 @@
     WSI.dialog = (options) => unwrap("dialog", options || {});
     WSI.ui = {
       openPage: (name, params) => unwrap("ui.openPage", { name, params: params || {} }),
+      openUrl: (url, options) => unwrap("ui.openUrl", { url: String(url), ...options || {} }),
       closePage: () => {
         call("ui.closePage", {});
       }
@@ -333,7 +361,12 @@
       remove: (profile) => unwrap("credentials.remove", { profile }),
       list: () => unwrap("credentials.list", {})
     };
-    WSI.device = { id: () => unwrap("device.id", {}), info: () => unwrap("device.info", {}) };
+    WSI.device = {
+      id: () => unwrap("device.id", {}),
+      info: () => unwrap("device.info", {}),
+      // same value for this plugin on this device, unrelated between plugins
+      key: () => unwrap("device.key", {})
+    };
     WSI.share = (options) => unwrap("share", options || {});
     WSI.files = {
       save: (name, data, options) => unwrap("files.save", { name, data, ...options || {} }),
@@ -346,9 +379,38 @@
     WSI.wakeLock = { acquire: () => unwrap("wakeLock.acquire", {}), release: () => unwrap("wakeLock.release", {}) };
     WSI.pip = { enter: () => unwrap("pip.enter", {}), exit: () => unwrap("pip.exit", {}), isSupported: () => unwrap("pip.isSupported", {}) };
     WSI.blockResources = (options) => unwrap("blockResources", options || {});
+    WSI.siteData = { clear: (options) => unwrap("siteData.clear", options || {}) };
     WSI.navigation = {
       intercept: (cb) => events.on("navigation.intercept", cb, { reply: true })
     };
+    WSI.app = { info: () => unwrap("app.info", {}) };
+    WSI.locale = { get: () => unwrap("locale.get", {}) };
+    WSI.location = {
+      permission: () => unwrap("location.permission", {}),
+      request: () => unwrap("location.request", {}),
+      getCurrent: (options) => unwrap("location.getCurrent", options || {})
+    };
+    WSI.network = { status: () => unwrap("network.status", {}), onChange: watched("network", "network.change") };
+    WSI.battery = { status: () => unwrap("battery.status", {}), onChange: watched("battery", "battery.change") };
+    WSI.biometrics = {
+      status: () => unwrap("biometrics.status", {}),
+      authenticate: (options) => unwrap("biometrics.authenticate", typeof options === "string" ? { reason: options } : options || {})
+    };
+    function watched(family, event) {
+      return (cb) => {
+        if (typeof cb !== "function") return () => {
+        };
+        const off = events.on(event, cb);
+        if (events.count(event) === 1) call(`${family}.watch`, {});
+        let removed = false;
+        return () => {
+          if (removed) return;
+          removed = true;
+          off();
+          if (events.count(event) === 0) call(`${family}.unwatch`, {});
+        };
+      };
+    }
   }
   function createEventBus() {
     const listeners = /* @__PURE__ */ new Map();
@@ -447,10 +509,11 @@
     }
     return WSI;
   }
-  function runPlugin(spec, adapter, events, pluginEntry) {
+  function runPlugin(spec, adapter, events) {
     const WSI = createWSI(spec, adapter, events);
     try {
-      pluginEntry(WSI);
+      const fn = new Function("WSI", spec.code);
+      fn(WSI);
       if (typeof adapter.onRun === "function") adapter.onRun();
       return { ok: true };
     } catch (e) {
@@ -471,8 +534,8 @@
     const ran = /* @__PURE__ */ new Set();
     Object.defineProperty(g, RAN_KEY, { value: ran, enumerable: false, configurable: true });
     const buses = /* @__PURE__ */ new Map();
-    const run = (spec, pluginEntry) => {
-      if (!spec || typeof spec.pluginId !== "string" || typeof pluginEntry !== "function") {
+    const run = (spec) => {
+      if (!spec || typeof spec.pluginId !== "string" || typeof spec.code !== "string") {
         return { ok: false, reason: "invalid spec" };
       }
       if (!spec.force && ran.has(spec.pluginId)) {
@@ -486,7 +549,7 @@
       ran.add(spec.pluginId);
       const events = createEventBus();
       if (spec.token) buses.set(spec.token, events);
-      const result = runPlugin(spec, adapter, events, pluginEntry);
+      const result = runPlugin(spec, adapter, events);
       if (!result.ok) {
         ran.delete(spec.pluginId);
         if (spec.token) buses.delete(spec.token);

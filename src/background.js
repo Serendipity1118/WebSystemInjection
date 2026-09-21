@@ -88,12 +88,10 @@ function createPluginInvocation(plugin) {
     config: plugin.config || {},
     permissions: plugin.permissions,
     context: 'page',
+    code: plugin.code || '',
   });
   const pluginId = JSON.stringify(plugin.id);
   const css = JSON.stringify(plugin.css || '');
-  const runPlugin = plugin.code
-    ? `function (WSI) {\n${plugin.code}\n}`
-    : 'function () {}';
 
   return `(() => {
     const pluginId = ${pluginId};
@@ -104,7 +102,7 @@ function createPluginInvocation(plugin) {
       style.textContent = css;
       (document.head || document.documentElement).appendChild(style);
     }
-    return globalThis.__wsiRun(${spec}, ${runPlugin});
+    return globalThis.__wsiRun(${spec});
   })();`;
 }
 
