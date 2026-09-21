@@ -158,7 +158,99 @@ function sanitizeFetchHeaders(headers) {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-const REFERER_RULE_ID = 900001;
+// Referer 注入用の DNR ルール ID 帯。並列 fetch で 1 本のルールを共有すると、先に終わった
+// リクエストの削除で後続が Referer なしになり CDN が 403 を返すため、(host, referrer) ごとに
+// ルールを持ち、使用中のリクエストが 0 になった時点で削除する。
+const REFERER_RULE_ID_MIN = 900001;
+const REFERER_RULE_ID_MAX = 900100;
+
+/** @type {Map<string, { id: number, count: number, ready: Promise<void> }>} */
+const refererRules = new Map();
+let refererRulesInit = null;
+let dnrQueue = Promise.resolve();
+
+// updateDynamicRules の追加・削除が前後しないよう直列化する
+function queueDynamicRules(update) {
+  const p = dnrQueue.then(() => chrome.declarativeNetRequest.updateDynamicRules(update));
+  dnrQueue = p.catch(() => {});
+  return p;
+}
+
+// Service Worker 再起動前のルールが残っていると ID が衝突するので最初に掃除する
+function initRefererRules() {
+  refererRulesInit ??= (async () => {
+    try {
+      const rules = await chrome.declarativeNetRequest.getDynamicRules();
+      const stale = rules
+        .map((r) => r.id)
+        .filter((id) => id >= REFERER_RULE_ID_MIN && id <= REFERER_RULE_ID_MAX);
+      if (stale.length > 0) await queueDynamicRules({ removeRuleIds: stale });
+    } catch {
+      // ignore cleanup errors
+    }
+  })();
+  return refererRulesInit;
+}
+
+function allocateRefererRuleId() {
+  const used = new Set([...refererRules.values()].map((e) => e.id));
+  for (let id = REFERER_RULE_ID_MIN; id <= REFERER_RULE_ID_MAX; id++) {
+    if (!used.has(id)) return id;
+  }
+  return null;
+}
+
+async function acquireRefererRule(host, referrer) {
+  await initRefererRules();
+  const key = `${host} ${referrer}`;
+  let entry = refererRules.get(key);
+  if (!entry) {
+    const id = allocateRefererRuleId();
+    if (id === null) return null;
+    entry = {
+      id,
+      count: 0,
+      ready: queueDynamicRules({
+        removeRuleIds: [id],
+        addRules: [{
+          id,
+          priority: 1,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              { header: 'Referer', operation: 'set', value: referrer },
+            ],
+          },
+          condition: {
+            urlFilter: `||${host}^`,
+            initiatorDomains: [chrome.runtime.id],
+            resourceTypes: ['xmlhttprequest', 'other'],
+          },
+        }],
+      }),
+    };
+    refererRules.set(key, entry);
+  }
+  entry.count += 1;
+  try {
+    await entry.ready;
+  } catch (err) {
+    releaseRefererRule(key);
+    throw err;
+  }
+  return key;
+}
+
+function releaseRefererRule(key) {
+  const entry = refererRules.get(key);
+  if (!entry) return;
+  entry.count -= 1;
+  if (entry.count > 0) return;
+  refererRules.delete(key);
+  queueDynamicRules({ removeRuleIds: [entry.id] }).catch(() => {
+    // ignore cleanup errors
+  });
+}
 
 async function withRefererHeader(referrer, targetUrl, run) {
   if (!referrer || !chrome.declarativeNetRequest?.updateDynamicRules) {
@@ -170,35 +262,11 @@ async function withRefererHeader(referrer, targetUrl, run) {
   } catch {
     return run();
   }
-  const urlFilter = `||${host}^`;
+  const key = await acquireRefererRule(host, referrer);
   try {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [REFERER_RULE_ID],
-      addRules: [{
-        id: REFERER_RULE_ID,
-        priority: 1,
-        action: {
-          type: 'modifyHeaders',
-          requestHeaders: [
-            { header: 'Referer', operation: 'set', value: referrer },
-          ],
-        },
-        condition: {
-          urlFilter,
-          initiatorDomains: [chrome.runtime.id],
-          resourceTypes: ['xmlhttprequest', 'other'],
-        },
-      }],
-    });
     return await run();
   } finally {
-    try {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: [REFERER_RULE_ID],
-      });
-    } catch {
-      // ignore cleanup errors
-    }
+    if (key) releaseRefererRule(key);
   }
 }
 
