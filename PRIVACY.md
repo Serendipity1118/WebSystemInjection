@@ -1,5 +1,9 @@
 # Web System Injection プライバシーポリシー
 
+> **このページは移転しました。最新版は <https://legal.wsibrowser.com/chrome/privacy> です（2026-09-23 移転）。**
+> Chrome ウェブストアに登録しているプライバシーポリシー URL も、同じ新しい URL に変更済みです。
+> このページは、旧 URL を知っている方のために残しています。内容は移転時点のものです。
+
 最終更新日: 2026年9月10日
 
 Web System Injection（以下「WSI」）は、ユーザーが選択したWebサイト上で、ユーザー自身がインポートしたプラグインを実行するChrome拡張機能です。

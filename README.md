@@ -1,5 +1,13 @@
 # Web System Injection (WSI)
 
+> **このリポジトリは [Serendipity1118/wsi](https://github.com/Serendipity1118/wsi)（private）に統合済みです（2026-09-23）。**
+> 以後の開発は `wsi` の `apps/chrome_extension/` で行います。ここは記録として残しているだけで、更新しません。
+> コミット履歴も `wsi` に取り込んであります。
+>
+> - プライバシーポリシーの最新版：<https://legal.wsibrowser.com/chrome/privacy>
+> - このリポジトリの GitHub Pages（`PRIVACY.html` と `/html/` の紹介ページ）は、
+>   旧 URL を知っている方のために残しています
+
 **既存のWebサイトにカスタム機能（プラグイン）を注入できるChrome拡張機能**
 
 *A plugin-based Chrome extension for injecting custom features into any website.*
